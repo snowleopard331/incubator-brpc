@@ -42,9 +42,11 @@ public:
 
     ParkingLot() : _pending_signal(0) {}
 
+    // 唤醒最多num_task个worker，返回唤醒的worker
     // Wake up at most `num_task' workers.
     // Returns #workers woken up.
     int signal(int num_task) {
+        // 这里之所以累加的数字，要经过左移操作，其目的只是为了让其成为偶数
         _pending_signal.fetch_add((num_task << 1), butil::memory_order_release);
         return futex_wake_private(&_pending_signal, num_task);
     }
@@ -66,6 +68,11 @@ public:
         futex_wake_private(&_pending_signal, 10000);
     }
 private:
+    /*
+        _pending_signal中存储的值其实并不表示任务的个数，尽管来任务来临时，
+        它会做一次加法，但加的并不是任务数，并且在任务被消费后不会做减法。
+        这里面值是没有具体意义的，其变化仅仅是一种状态“同步”的媒介
+    */
     // higher 31 bits for signalling, LSB for stopping.
     butil::atomic<int> _pending_signal;
 };

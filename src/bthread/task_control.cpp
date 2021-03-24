@@ -56,12 +56,18 @@ void run_worker_startfn() {
 }
 
 void* TaskControl::worker_thread(void* arg) {
+    /*
+        1. TG创建前的处理, 里面也是回调 g_worker_startfn 函数来执行操作,
+            可以通过 bthread_set_worker_startfn() 来设置这个回调, 实际很少用到这个功能
+    */
     run_worker_startfn();    
 #ifdef BAIDU_INTERNAL
     logging::ComlogInitializer comlog_initializer;
 #endif
     
+    // 2. 获取TC的指针
     TaskControl* c = static_cast<TaskControl*>(arg);
+    // 2.1 创建一个TG
     TaskGroup* g = c->create_group();
     TaskStatistics stat;
     if (NULL == g) {
@@ -71,14 +77,20 @@ void* TaskControl::worker_thread(void* arg) {
     BT_VLOG << "Created worker=" << pthread_self()
             << " bthread=" << g->main_tid();
 
-    tls_task_group = g;
+    // 3.1 把thread local的tls_task_group用刚创建的TG来初始化
+    tls_task_group = g; // 只有worker线程的tls_task_group为非null
+    // 3.2 worker计数加1（_nworkers是bvar::Adder<int64_t>类型)
     c->_nworkers << 1;
+
+    // 4. TG运行主任务(死循环)
     g->run_main_task();
 
+    // 5. TG结束时返回状态信息
     stat = g->main_stat();
     BT_VLOG << "Destroying worker=" << pthread_self() << " bthread="
             << g->main_tid() << " idle=" << stat.cputime_ns / 1000000.0
             << "ms uptime=" << g->current_uptime_ns() / 1000000.0 << "ms";
+    // 6. 各种清理操作
     tls_task_group = NULL;
     g->destroy_self();
     c->_nworkers << -1;
@@ -160,8 +172,10 @@ int TaskControl::init(int concurrency) {
         return -1;
     }
     
+    // 创建pthread线程
     _workers.resize(_concurrency);   
     for (int i = 0; i < _concurrency; ++i) {
+        // 为每个worker执行worker_thread函数
         const int rc = pthread_create(&_workers[i], NULL, worker_thread, this);
         if (rc) {
             LOG(ERROR) << "Fail to create _workers[" << i << "], " << berror(rc);
@@ -344,13 +358,16 @@ bool TaskControl::steal_task(bthread_t* tid, size_t* seed, size_t offset) {
     bool stolen = false;
     size_t s = *seed;
     for (size_t i = 0; i < ngroup; ++i, s += offset) {
+        // 随机找一个TG
         TaskGroup* g = _groups[s % ngroup];
         // g is possibly NULL because of concurrent _destroy_group
         if (g) {
+            // 先窃取_rq中的任务
             if (g->_rq.steal(tid)) {
                 stolen = true;
                 break;
             }
+            // 上面失败则窃取_remote_rq中的任务
             if (g->_remote_rq.pop(tid)) {
                 stolen = true;
                 break;
@@ -365,6 +382,15 @@ void TaskControl::signal_task(int num_task) {
     if (num_task <= 0) {
         return;
     }
+    /*
+        num_task不超过2，是在性能和调度时间直接的一种平衡(作者说明)
+        这句话如何理解呢？其实是这样，如果TC的signal_task()通知的任务个数多，
+        那么队列被消费的也就越快。消费的快本来是好事，但是也有个问题就是我们
+        现在之所以走到signal_task()是因为我们在“生产”bthread任务，也就是说
+        在执行bthread_start_background()（或其他函数）创建新任务。这个函数调用
+        是阻塞的，如果signal_task()通知的任务个数太多，则会导致
+        bthread_start_background()阻塞的时间拉长。所以这里说是找到一种平衡
+    */ 
     // TODO(gejun): Current algorithm does not guarantee enough threads will
     // be created to match caller's requests. But in another side, there's also
     // many useless signalings according to current impl. Capping the concurrency
@@ -372,7 +398,9 @@ void TaskControl::signal_task(int num_task) {
     if (num_task > 2) {
         num_task = 2;
     }
+    // 找到当前TG(worker)所归属的PL
     int start_index = butil::fmix64(pthread_numeric_id()) % PARKING_LOT_NUM;
+    // num_task减去唤醒的个数就是需要唤醒，但未唤醒的任务个数
     num_task -= _pl[start_index].signal(1);
     if (num_task > 0) {
         for (int i = 1; i < PARKING_LOT_NUM && num_task > 0; ++i) {
@@ -382,12 +410,14 @@ void TaskControl::signal_task(int num_task) {
             num_task -= _pl[start_index].signal(1);
         }
     }
-    if (num_task > 0 &&
+    if (num_task > 0 && // 此时任务还有剩余说明消费者不够用
         FLAGS_bthread_min_concurrency > 0 &&    // test min_concurrency for performance
         _concurrency.load(butil::memory_order_relaxed) < FLAGS_bthread_concurrency) {
         // TODO: Reduce this lock
         BAIDU_SCOPED_LOCK(g_task_control_mutex);
+        // 全局TC的并发度(_concurrency)小于gflag中配置的FLAGS_bthread_concurrency
         if (_concurrency.load(butil::memory_order_acquire) < FLAGS_bthread_concurrency) {
+            // 增加worker的数量
             add_workers(1);
         }
     }

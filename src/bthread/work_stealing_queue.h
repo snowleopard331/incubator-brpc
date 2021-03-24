@@ -52,11 +52,13 @@ public:
             LOG(ERROR) << "Invalid capacity=" << capacity;
             return -1;
         }
+        // 初始化容量要为2的整数次幂
         if (capacity & (capacity - 1)) {
             LOG(ERROR) << "Invalid capacity=" << capacity
                        << " which must be power of 2";
             return -1;
         }
+        // 初始化模板类型的数组
         _buffer = new(std::nothrow) T[capacity];
         if (NULL == _buffer) {
             return -1;

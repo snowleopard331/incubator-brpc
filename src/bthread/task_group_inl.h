@@ -60,8 +60,12 @@ inline void TaskGroup::exchange(TaskGroup** pg, bthread_t next_tid) {
 }
 
 inline void TaskGroup::sched_to(TaskGroup** pg, bthread_t next_tid) {
-    TaskMeta* next_meta = address_meta(next_tid);
+    /*
+        tid 是由 version + slot 组成, 故能够通过tid中的slot直接拿到tid对应的TM
+    */
+    TaskMeta* next_meta = address_meta(next_tid);   // 通过tid拿到对应bthread的taskmeta信息
     if (next_meta->stack == NULL) {
+        // 获取对应的 ContextualStack 信息
         ContextualStack* stk = get_stack(next_meta->stack_type(), task_runner);
         if (stk) {
             next_meta->set_stack(stk);

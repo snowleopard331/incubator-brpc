@@ -35,7 +35,7 @@ struct StackStorage {
      int guardsize;
     // Assume stack grows upwards.
     // http://www.boost.org/doc/libs/1_55_0/libs/context/doc/html/context/stack.html
-    void* bottom;
+    void* bottom;       // 栈分配时会通过mmap匿名映射一段空间，然后将高地址位赋值给bottom
     unsigned valgrind_stack_id;
 
     // Clears all members.
@@ -62,9 +62,9 @@ enum StackType {
 };
 
 struct ContextualStack {
-    bthread_fcontext_t context;
-    StackType stacktype;
-    StackStorage storage;
+    bthread_fcontext_t context; // 栈顶
+    StackType stacktype;        // 栈类型
+    StackStorage storage;       // 栈的具体信息
 };
 
 // Get a stack in the `type' and run `entry' at the first time that the

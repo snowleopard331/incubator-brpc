@@ -147,17 +147,18 @@ public:
         // we don't want.
 #define BAIDU_OBJECT_POOL_GET(CTOR_ARGS)                                \
         /* Fetch local free ptr */                                      \
-        if (_cur_free.nfree) {                                          \
+        if (_cur_free.nfree) { /*如果对象池中有剩余则直接返回*/         \
             BAIDU_OBJECT_POOL_FREE_ITEM_NUM_SUB1;                       \
             return _cur_free.ptrs[--_cur_free.nfree];                   \
         }                                                               \
         /* Fetch a FreeChunk from global.                               \
            TODO: Popping from _free needs to copy a FreeChunk which is  \
            costly, but hardly impacts amortized performance. */         \
-        if (_pool->pop_free_chunk(_cur_free)) {                         \
+        if (_pool->pop_free_chunk(_cur_free)) { /*对象池中无剩余*/      \
             BAIDU_OBJECT_POOL_FREE_ITEM_NUM_SUB1;                       \
             return _cur_free.ptrs[--_cur_free.nfree];                   \
         }                                                               \
+        /* 使用定位new, 在指定内存位置去构造对象. 如果成功则直接把构造好的对象指针返回*/  \
         /* Fetch memory from local block */                             \
         if (_cur_block && _cur_block->nitem < BLOCK_NITEM) {            \
             T* obj = new ((T*)_cur_block->items + _cur_block->nitem) T CTOR_ARGS; \
@@ -168,6 +169,7 @@ public:
             ++_cur_block->nitem;                                        \
             return obj;                                                 \
         }                                                               \
+        /* 走到这里说明构造对象构造失败了, 则新建一个block再new*/       \
         /* Fetch a Block from global */                                 \
         _cur_block = add_block(&_cur_block_index);                      \
         if (_cur_block != NULL) {                                       \

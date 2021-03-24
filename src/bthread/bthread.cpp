@@ -71,20 +71,26 @@ inline TaskControl* get_task_control() {
 }
 
 inline TaskControl* get_or_new_task_control() {
+    // 1. 使用全局变量tc初始化原子变量
     butil::atomic<TaskControl*>* p = (butil::atomic<TaskControl*>*)&g_task_control;
+    // 1.1 通过原子变量进行load, 取出tc指针, 如果不为空则直接返回
     TaskControl* c = p->load(butil::memory_order_consume);
     if (c != NULL) {
         return c;
     }
+    // 1.2 竞争加自旋锁, 重复上一操作
     BAIDU_SCOPED_LOCK(g_task_control_mutex);
     c = p->load(butil::memory_order_consume);
     if (c != NULL) {
         return c;
     }
+
+    // 2. 到这里说明tc确实为NULL, new一个
     c = new (std::nothrow) TaskControl;
     if (NULL == c) {
         return NULL;
     }
+    // 3. 使用并发度concurrency来初始化全局tc
     int concurrency = FLAGS_bthread_min_concurrency > 0 ?
         FLAGS_bthread_min_concurrency :
         FLAGS_bthread_concurrency;
@@ -93,6 +99,7 @@ inline TaskControl* get_or_new_task_control() {
         delete c;
         return NULL;
     }
+    // 4. 将全局tc存入原子变量中
     p->store(c, butil::memory_order_release);
     return c;
 }
@@ -125,10 +132,13 @@ start_from_non_worker(bthread_t* __restrict tid,
                       const bthread_attr_t* __restrict attr,
                       void * (*fn)(void*),
                       void* __restrict arg) {
-    TaskControl* c = get_or_new_task_control();
+    // 获取单例TaskControl
+    TaskControl* c = get_or_new_task_control(); 
     if (NULL == c) {
         return ENOMEM;
     }
+
+    // 选择一个TaskGroup然后调用start_background<true>
     if (attr != NULL && (attr->flags & BTHREAD_NOSIGNAL)) {
         // Remember the TaskGroup to insert NOSIGNAL tasks for 2 reasons:
         // 1. NOSIGNAL is often for creating many bthreads in batch,
@@ -185,11 +195,17 @@ int bthread_start_background(bthread_t* __restrict tid,
                              const bthread_attr_t* __restrict attr,
                              void * (*fn)(void*),
                              void* __restrict arg) {
+    // 如果能获取到thead local的worker(TaskGroup), 那么直接用这个worker来运行任务
     bthread::TaskGroup* g = bthread::tls_task_group;
     if (g) {
         // start from worker
+        /*
+            在新建taskmeta后会调用ready_to_run，此时会将该bthread push到rq中，
+            而不是直接切换运行，即”低优先级”
+        */
         return g->start_background<false>(tid, attr, fn, arg);
     }
+    // 如果获取不到TG则说明当前还没有bthread的上下文(TC/TG都没有), 所以调用此函数从而创建TC
     return bthread::start_from_non_worker(tid, attr, fn, arg);
 }
 

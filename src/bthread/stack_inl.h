@@ -48,7 +48,9 @@ struct LargeStackClass {
 
 template <typename StackClass> struct StackFactory {
     struct Wrapper : public ContextualStack {
+        // entry只有两个值，一种是NULL，另外一个就是TG中的static函数：task_runner()
         explicit Wrapper(void (*entry)(intptr_t)) {
+            // 分配栈空间并初始化成员, 参数:存储的指针, 栈大小, 保护页大小
             if (allocate_stack_storage(&storage, *StackClass::stack_size_flag,
                                        FLAGS_guard_page_size) != 0) {
                 storage.zeroize();
@@ -60,6 +62,7 @@ template <typename StackClass> struct StackFactory {
         }
         ~Wrapper() {
             if (context) {
+                // 释放空间并重置成员
                 context = NULL;
                 deallocate_stack_storage(&storage);
                 storage.zeroize();
@@ -76,6 +79,8 @@ template <typename StackClass> struct StackFactory {
     }
 };
 
+// 与StackFactory通用模板类的区别就是没有Wrapper, 没有调用bthread_make_fcontext(), 
+// 也就是没有分配上下文
 template <> struct StackFactory<MainStackClass> {
     static ContextualStack* get_stack(void (*)(intptr_t)) {
         ContextualStack* s = new (std::nothrow) ContextualStack;
@@ -129,6 +134,7 @@ inline void return_stack(ContextualStack* s) {
 }
 
 inline void jump_stack(ContextualStack* from, ContextualStack* to) {
+    // 此函数为汇编函数, 跳转进去有版权声明, 功能是进行栈上下文的切换
     bthread_jump_fcontext(&from->context, to->context, 0/*not skip remained*/);
 }
 

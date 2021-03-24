@@ -54,16 +54,18 @@ static bvar::PassiveStatus<int64_t> bvar_stack_count(
     "bthread_stack_count", get_stack_count, NULL);
 
 int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) {
-    const static int PAGESIZE = getpagesize();
+    const static int PAGESIZE = getpagesize();  // 库函数, 获取系统分页的大小(字节)
     const int PAGESIZE_M1 = PAGESIZE - 1;
     const int MIN_STACKSIZE = PAGESIZE * 2;
     const int MIN_GUARDSIZE = PAGESIZE;
 
+    // 内存对齐(页大小的整数倍)
     // Align stacksize
     const int stacksize =
         (std::max(stacksize_in, MIN_STACKSIZE) + PAGESIZE_M1) &
         ~PAGESIZE_M1;
 
+    // 传入guardsize_in默认4096, 一般不会修改
     if (guardsize_in <= 0) {
         void* mem = malloc(stacksize);
         if (NULL == mem) {
@@ -83,11 +85,13 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
         }
         return 0;
     } else {
+        // 内存对齐
         // Align guardsize
         const int guardsize =
             (std::max(guardsize_in, MIN_GUARDSIZE) + PAGESIZE_M1) &
             ~PAGESIZE_M1;
 
+        // 用mmap分配一块内存, 大小是stacksize与guardsize之和
         const int memsize = stacksize + guardsize;
         void* const mem = mmap(NULL, memsize, (PROT_READ | PROT_WRITE),
                                (MAP_PRIVATE | MAP_ANONYMOUS), -1, 0);
@@ -101,11 +105,15 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
             return -1;
         }
 
+        // 判断一下mmap返回的内存地址是不是按照页大小对齐的。如果不是就打一行ERROR日志。
         void* aligned_mem = (void*)(((intptr_t)mem + PAGESIZE_M1) & ~PAGESIZE_M1);
         if (aligned_mem != mem) {
             LOG_ONCE(ERROR) << "addr=" << mem << " returned by mmap is not "
                 "aligned by pagesize=" << PAGESIZE;
         }
+        // 计算offset, 当不对齐的时候offset大于0. 如果offset大于保护页的大小, 直接返回-1
+        // 如果offset小于保护页的大小, 就调用mprotect()把多余的字节（guardsize - offset）
+        // 设置成不可访问（PROT_NONE）
         const int offset = (char*)aligned_mem - (char*)mem;
         if (guardsize <= offset ||
             mprotect(aligned_mem, guardsize - offset, PROT_NONE) != 0) {
@@ -117,6 +125,7 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
         }
 
         s_stack_count.fetch_add(1, butil::memory_order_relaxed);
+        // 内存分配完毕, 为s赋值, 将信息带出去
         s->bottom = (char*)mem + memsize;
         s->stacksize = stacksize;
         s->guardsize = guardsize;
