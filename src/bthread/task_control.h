@@ -112,7 +112,7 @@ private:
     bvar::Adder<int64_t> _nbthreads;
 
     static const int PARKING_LOT_NUM = 4;
-    ParkingLot _pl[PARKING_LOT_NUM];
+    ParkingLot _pl[PARKING_LOT_NUM];    // 全局只有一个TC, 所以全局也只有4个PL对象
 };
 
 inline bvar::LatencyRecorder& TaskControl::exposed_pending_time() {

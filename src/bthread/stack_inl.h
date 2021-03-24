@@ -129,6 +129,7 @@ inline void return_stack(ContextualStack* s) {
 }
 
 inline void jump_stack(ContextualStack* from, ContextualStack* to) {
+    // 此函数为汇编函数, 跳转进去有版权声明, 功能是进行栈上下文的切换
     bthread_jump_fcontext(&from->context, to->context, 0/*not skip remained*/);
 }
 

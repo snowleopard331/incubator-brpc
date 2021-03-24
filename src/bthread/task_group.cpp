@@ -57,6 +57,7 @@ const bool ALLOW_UNUSED dummy_show_per_worker_usage_in_vars =
     ::GFLAGS_NS::RegisterFlagValidator(&FLAGS_show_per_worker_usage_in_vars,
                                     pass_bool);
 
+// 这个tls变量很重要，表明当前线程所归属的taskgroup，如果为null，说明当前线程不是bthread
 __thread TaskGroup* tls_task_group = NULL;
 // Sync with TaskMeta::local_storage when a bthread is created or destroyed.
 // During running, the two fields may be inconsistent, use tls_bls as the
@@ -118,9 +119,14 @@ bool TaskGroup::is_stopped(bthread_t tid) {
 bool TaskGroup::wait_task(bthread_t* tid) {
     do {
 #ifndef BTHREAD_DONT_SAVE_PARKING_STATE
+        // 这里判断val是否是奇数, 由于在生产任务时调用PL的signal()总是累加一个偶数(num<<1), 所以正常情况下这里都是不成立的
         if (_last_pl_state.stopped()) {
             return false;
         }
+        /*
+            内部调用的futex做的wait操作，这里可以简单理解为阻塞等待被通知来终止阻塞，
+            当阻塞结束之后，执行steal_task()来进行工作窃取
+        */
         _pl->wait(_last_pl_state);
         if (steal_task(tid)) {
             return true;
@@ -149,11 +155,17 @@ void TaskGroup::run_main_task() {
 
     TaskGroup* dummy = this;
     bthread_t tid;
+    /*
+    *   每个worker会一直在while循环中，如果有可执行的bthread，wait_task会返回tid，
+    *   否则将阻塞当前worker;其中会涉及工作窃取(working stealing)
+    */ 
     while (wait_task(&tid)) {
+        // 进行栈/寄存器等运行时上下文的切换, 为接下来运行的任务恢复其上下文
         TaskGroup::sched_to(&dummy, tid);
         DCHECK_EQ(this, dummy);
         DCHECK_EQ(_cur_meta->stack, _main_stack);
         if (_cur_meta->tid != _main_tid) {
+            // 执行任务
             TaskGroup::task_runner(1/*skip remained*/);
         }
         if (FLAGS_show_per_worker_usage_in_vars && !usage_bvar) {
@@ -195,6 +207,7 @@ TaskGroup::TaskGroup(TaskControl* c)
 {
     _steal_seed = butil::fast_rand();
     _steal_offset = OFFSET_TABLE[_steal_seed % ARRAY_SIZE(OFFSET_TABLE)];
+    // butil::fmix64()是一个hash函数, 从TC的4个PL中选了一个赋值给了TG
     _pl = &c->_pl[butil::fmix64(pthread_numeric_id()) % TaskControl::PARKING_LOT_NUM];
     CHECK(c);
 }
@@ -218,6 +231,7 @@ int TaskGroup::init(size_t runqueue_capacity) {
         LOG(FATAL) << "Fail to init _remote_rq";
         return -1;
     }
+    // 针对STACK_TYPE_MAIN做了特化，此时不会分配栈空间，仅仅返回一个ContextualStack对象
     ContextualStack* stk = get_stack(STACK_TYPE_MAIN, NULL);
     if (NULL == stk) {
         LOG(FATAL) << "Fail to get main stack container";
@@ -286,6 +300,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
                 (butil::cpuwide_time_ns() - m->cpuwide_start_ns) / 1000L;
         }
 
+        // 执行TM(bthread)中的回调函数
         // Not catch exceptions except ExitException which is for implementing
         // bthread_exit(). User code is intended to crash when an exception is
         // not caught explicitly. This is consistent with other threading
@@ -298,6 +313,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
         }
 
         // Group is probably changed
+        // 函数执行过程中该bth可能会调度至其他worker，因此task_group可能发生改变，所以重新对g进行设置
         g = tls_task_group;
 
         // TODO: Save thread_return
@@ -311,6 +327,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
                       << m->stat.cputime_ns / 1000000.0 << "ms";
         }
 
+        // 清理线程局部变量
         // Clean tls variables, must be done before changing version_butex
         // otherwise another thread just joined this thread may not see side
         // effects of destructing tls variables.
@@ -322,6 +339,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
             m->local_storage.keytable = NULL; // optional
         }
 
+        // 累加版本号, 且版本号不能为0
         // Increase the version and wake up all joiners, if resulting version
         // is 0, change it to 1 to make bthread_t never be 0. Any access
         // or join to the bthread after changing version will be rejected.
@@ -332,10 +350,13 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
                 ++*m->version_butex;
             }
         }
+        // 唤醒joiner
         butex_wake_except(m->version_butex, 0);
 
+        // _nbthreads减1
         g->_control->_nbthreads << -1;
         g->set_remained(TaskGroup::_release_last_context, m);
+        // 查找下一个任务, 并切换到其对应的运行时上下文
         ending_sched(&g);
 
     } while (g->_cur_meta->tid != g->_main_tid);
@@ -394,6 +415,11 @@ int TaskGroup::start_foreground(TaskGroup** pg,
         g->ready_to_run(m->tid, (using_attr.flags & BTHREAD_NOSIGNAL));
     } else {
         // NOSIGNAL affects current task, not the new task.
+        /*
+            在task_runner中, bthread在真正执行自己的meta逻辑前会先执行remain,
+            start_foreground会抢占当前bthread的执行, 因此通过remain将当前bthread
+            重新push到rq中等待执行
+        */ 
         RemainedFn fn = NULL;
         if (g->current_task()->about_to_quit) {
             fn = ready_to_run_in_worker_ignoresignal;
@@ -405,12 +431,12 @@ int TaskGroup::start_foreground(TaskGroup** pg,
             (bool)(using_attr.flags & BTHREAD_NOSIGNAL)
         };
         g->set_remained(fn, &args);
-        TaskGroup::sched_to(pg, m->tid);
+        TaskGroup::sched_to(pg, m->tid);    // 调度执行
     }
     return 0;
 }
 
-template <bool REMOTE>
+template <bool REMOTE>  // REMOTE表示该bthread的线程时普通pthread还是bthread_worker
 int TaskGroup::start_background(bthread_t* __restrict th,
                                 const bthread_attr_t* __restrict attr,
                                 void * (*fn)(void*),
@@ -421,7 +447,7 @@ int TaskGroup::start_background(bthread_t* __restrict th,
     const int64_t start_ns = butil::cpuwide_time_ns();
     const bthread_attr_t using_attr = (attr ? *attr : BTHREAD_ATTR_NORMAL);
     butil::ResourceId<TaskMeta> slot;
-    TaskMeta* m = butil::get_resource(&slot);
+    TaskMeta* m = butil::get_resource(&slot);   // 从资源池取出一个Taskmeta对象并对其初始化
     if (__builtin_expect(!m, 0)) {
         return ENOMEM;
     }
@@ -429,7 +455,7 @@ int TaskGroup::start_background(bthread_t* __restrict th,
     m->stop = false;
     m->interrupted = false;
     m->about_to_quit = false;
-    m->fn = fn;
+    m->fn = fn;     // 执行函数的赋值
     m->arg = arg;
     CHECK(m->stack == NULL);
     m->attr = using_attr;
@@ -442,6 +468,7 @@ int TaskGroup::start_background(bthread_t* __restrict th,
         LOG(INFO) << "Started bthread " << m->tid;
     }
     _control->_nbthreads << 1;
+    // 将TaskMeta加入到rq中, 而不是直接调度执行
     if (REMOTE) {
         ready_to_run_remote(m->tid, (using_attr.flags & BTHREAD_NOSIGNAL));
     } else {
@@ -516,6 +543,7 @@ void TaskGroup::ending_sched(TaskGroup** pg) {
 #else
     const bool popped = g->_rq.steal(&next_tid);
 #endif
+    // 这里先从_rq中取任务, 如果没有则去窃取任务(看来TG并不把_remote_rq当作自己的任务来看), 若窃取不到任务则 next_tid 设置为 g->_main_tid, 使外部 task_runner 中跳出循环
     if (!popped && !g->steal_task(&next_tid)) {
         // Jump to main task if there's no task to run.
         next_tid = g->_main_tid;
@@ -583,11 +611,12 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta) {
     }
     ++cur_meta->stat.nswitch;
     ++ g->_nswitch;
+    // 判断下一个TM和当前的TM如果不是同一个就切换栈
     // Switch to the task
     if (__builtin_expect(next_meta != cur_meta, 1)) {
         g->_cur_meta = next_meta;
         // Switch tls_bls
-        cur_meta->local_storage = tls_bls;
+        cur_meta->local_storage = tls_bls;  // tls_bls 表示TM(bthread)内部的局部存储
         tls_bls = next_meta->local_storage;
 
         // Logging must be done after switching the local storage, since the logging lib
@@ -600,7 +629,7 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta) {
 
         if (cur_meta->stack != NULL) {
             if (next_meta->stack != cur_meta->stack) {
-                jump_stack(cur_meta->stack, next_meta->stack);
+                jump_stack(cur_meta->stack, next_meta->stack);  // 切换栈
                 // probably went to another group, need to assign g again.
                 g = tls_task_group;
             }
@@ -617,6 +646,7 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta) {
         LOG(FATAL) << "bthread=" << g->current_tid() << " sched_to itself!";
     }
 
+    // 执行TG的 remain 函数
     while (g->_last_context_remained) {
         RemainedFn fn = g->_last_context_remained;
         g->_last_context_remained = NULL;
@@ -643,6 +673,7 @@ void TaskGroup::destroy_self() {
     }
 }
 
+// 把任务加入队列然后调用signal按需唤醒work
 void TaskGroup::ready_to_run(bthread_t tid, bool nosignal) {
     push_rq(tid);
     if (nosignal) {
@@ -665,12 +696,19 @@ void TaskGroup::flush_nosignal_tasks() {
 }
 
 void TaskGroup::ready_to_run_remote(bthread_t tid, bool nosignal) {
+    // 给当前TG的_remote_rq加互斥锁
     _remote_rq._mutex.lock();
+    // 入队操作
     while (!_remote_rq.push_locked(tid)) {
+        /*
+            这里只要失败就执行flush然后休眠1ms, 然后进行下一次循环重新尝试入队,
+            失败的唯一原因就是_remote_rq的容量满了
+        */ 
         flush_nosignal_tasks_remote_locked(_remote_rq._mutex);
         LOG_EVERY_SECOND(ERROR) << "_remote_rq is full, capacity="
                                 << _remote_rq.capacity();
         ::usleep(1000);
+        // flush_nosignal_tasks_remote_locked内会解锁, 这里重新加锁
         _remote_rq._mutex.lock();
     }
     if (nosignal) {
@@ -685,6 +723,7 @@ void TaskGroup::ready_to_run_remote(bthread_t tid, bool nosignal) {
     }
 }
 
+// 发出一个信号让_remote_rq中的任务(TM/bthread)尽快被消费掉
 void TaskGroup::flush_nosignal_tasks_remote_locked(butil::Mutex& locked_mutex) {
     const int val = _remote_num_nosignal;
     if (!val) {

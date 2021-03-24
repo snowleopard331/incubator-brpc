@@ -88,7 +88,7 @@ public:
     // The callback will be run in the beginning of next-run bthread.
     // Can't be called by current bthread directly because it often needs
     // the target to be suspended already.
-    typedef void (*RemainedFn)(void*);
+    typedef void (*RemainedFn)(void*);  // bthread在开始运行自己逻辑前需要的一些准备工作
     void set_remained(RemainedFn cb, void* arg) {
         _last_context_remained = cb;
         _last_context_remained_arg = arg;
@@ -212,12 +212,20 @@ friend class TaskControl;
     bool wait_task(bthread_t* tid);
 
     bool steal_task(bthread_t* tid) {
+        /*
+            首先TG的remote_rq队列中的任务出队
+            为何不先取当前_rq中的任务? 
+            原因是为了避免 race condition. 也就是避免多个TG等待任务的时候, 
+            当前TG从_rq去任务, 与其他TG过来这边窃取任务造成竞态, 从而提升性能
+        */ 
         if (_remote_rq.pop(tid)) {
             return true;
         }
 #ifndef BTHREAD_DONT_SAVE_PARKING_STATE
+        // _remote_rq无任务时, _last_pl_state会从_pl同步一次状态
         _last_pl_state = _pl->get_state();
 #endif
+        // 如果_remote_rq中没有则使用全局TC来窃取任务
         return _control->steal_task(tid, &_steal_seed, _steal_offset);
     }
 
@@ -239,7 +247,7 @@ friend class TaskControl;
     RemainedFn _last_context_remained;
     void* _last_context_remained_arg;
 
-    ParkingLot* _pl;
+    ParkingLot* _pl;    // 指向TC中的PL
 #ifndef BTHREAD_DONT_SAVE_PARKING_STATE
     ParkingLot::State _last_pl_state;
 #endif
@@ -247,8 +255,8 @@ friend class TaskControl;
     size_t _steal_offset;
     ContextualStack* _main_stack;
     bthread_t _main_tid;
-    WorkStealingQueue<bthread_t> _rq;
-    RemoteTaskQueue _remote_rq;
+    WorkStealingQueue<bthread_t> _rq;   // 当前TG将bthread入到此队列
+    RemoteTaskQueue _remote_rq;         // 其他没有TG的线程中把bthread入到此队列
     int _remote_num_nosignal;
     int _remote_nsignaled;
 };
