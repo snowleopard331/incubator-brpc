@@ -1215,6 +1215,7 @@ void ProcessHttpRequest(InputMessageBase *msg) {
     DestroyingPtr<HttpContext> imsg_guard(static_cast<HttpContext*>(msg));
     SocketUniquePtr socket_guard(imsg_guard->ReleaseSocket());
     Socket* socket = socket_guard.get();
+    // 在BuildAcceptor中将server的this指针赋值给handler的arg成员
     const Server* server = static_cast<const Server*>(msg->arg());
     ScopedNonServiceError non_service_error(server);
 
@@ -1396,6 +1397,7 @@ void ProcessHttpRequest(InputMessageBase *msg) {
         return;
     }
 
+    // 服务与方法
     google::protobuf::Service* svc = sp->service;
     const google::protobuf::MethodDescriptor* method = sp->method;
     accessor.set_method(method);

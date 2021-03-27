@@ -562,7 +562,7 @@ Acceptor* Server::BuildAcceptor() {
     }
     InputMessageHandler handler;
     std::vector<Protocol> protocols;
-    ListProtocols(&protocols);
+    ListProtocols(&protocols);  // 取出所有注册支持的协议
     for (size_t i = 0; i < protocols.size(); ++i) {
         if (protocols[i].process_request == NULL) {
             // The protocol does not support server-side.
@@ -581,6 +581,7 @@ Acceptor* Server::BuildAcceptor() {
         handler.verify = protocols[i].verify;
         handler.arg = this;
         handler.name = protocols[i].name;
+        // 遍历协议类型并将handler添加到acceptor
         if (acceptor->AddHandler(handler) != 0) {
             LOG(ERROR) << "Fail to add handler into Acceptor("
                        << acceptor << ')';
@@ -607,7 +608,7 @@ int Server::InitializeOnce() {
     if (_status != UNINITIALIZED) {
         return 0;
     }
-    GlobalInitializeOrDie();
+    GlobalInitializeOrDie();    // 保证只执行一次
 
     if (_status != UNINITIALIZED) {
         return 0;
@@ -940,6 +941,7 @@ int Server::StartInternal(const butil::ip_t& ip,
                    << port_range.max_port << ']';
         return -1;
     }
+    // 在指定的ip和端口范围（在范围内不断尝试，成功了就停止继续尝试）上启动监听
     _listen_addr.ip = ip;
     for (int port = port_range.min_port; port <= port_range.max_port; ++port) {
         _listen_addr.port = port;
@@ -967,7 +969,7 @@ int Server::StartInternal(const butil::ip_t& ip,
             }
         }
         if (_am == NULL) {
-            _am = BuildAcceptor();
+            _am = BuildAcceptor();  // 构建接收器
             if (NULL == _am) {
                 LOG(ERROR) << "Fail to build acceptor";
                 return -1;
@@ -980,6 +982,7 @@ int Server::StartInternal(const butil::ip_t& ip,
         GenerateVersionIfNeeded();
         g_running_server_count.fetch_add(1, butil::memory_order_relaxed);
 
+        // 把sockfd的所有权转交给_am
         // Pass ownership of `sockfd' to `_am'
         if (_am->StartAccept(sockfd, _options.idle_timeout_sec,
                              _default_ssl_ctx) != 0) {
@@ -1174,7 +1177,7 @@ int Server::AddServiceInternal(google::protobuf::Service* service,
                    << " does not have any method.";
         return -1;
     }
-
+    // server的初始化
     if (InitializeOnce() != 0) {
         LOG(ERROR) << "Fail to initialize Server[" << version() << ']';
         return -1;

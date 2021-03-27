@@ -273,6 +273,7 @@ void* EventDispatcher::RunThis(void* arg) {
     return NULL;
 }
 
+// 执行epoll的线程函数, 处理读写事件
 void EventDispatcher::Run() {
     while (!_stop) {
 #if defined(OS_LINUX)
@@ -284,7 +285,7 @@ void EventDispatcher::Run() {
             n = epoll_wait(_epfd, e, ARRAY_SIZE(e), -1);
         }
 #else
-        const int n = epoll_wait(_epfd, e, ARRAY_SIZE(e), -1);
+        const int n = epoll_wait(_epfd, e, ARRAY_SIZE(e), -1);  // -1表示无限阻塞
 #endif
 #elif defined(OS_MACOSX)
         struct kevent e[32];

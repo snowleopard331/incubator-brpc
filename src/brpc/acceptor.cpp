@@ -79,8 +79,8 @@ int Acceptor::StartAccept(int listened_fd, int idle_timeout_sec,
     SocketOptions options;
     options.fd = listened_fd;
     options.user = this;
-    options.on_edge_triggered_events = OnNewConnections;
-    if (Socket::Create(options, &_acception_id) != 0) {
+    options.on_edge_triggered_events = OnNewConnections;    // ET模式下的回调
+    if (Socket::Create(options, &_acception_id) != 0) {     // 将fd封装为socket对象
         // Close-idle-socket thread will be stopped inside destructor
         LOG(FATAL) << "Fail to create _acception_id";
         return -1;
@@ -265,12 +265,14 @@ void Acceptor::OnNewConnectionsUntilEAGAIN(Socket* acception) {
             return;
         }
         
+        // 通过acception监听来获得fd
         SocketId socket_id;
         SocketOptions options;
         options.keytable_pool = am->_keytable_pool;
         options.fd = in_fd;
         options.remote_side = butil::EndPoint(*(sockaddr_in*)&in_addr);
         options.user = acception->user();
+        // 处理新连接上的消息的回调(服务中的业务回调)
         options.on_edge_triggered_events = InputMessenger::OnNewMessages;
         options.initial_ssl_ctx = am->_ssl_ctx;
         if (Socket::Create(options, &socket_id) != 0) {

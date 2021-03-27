@@ -183,11 +183,11 @@ public:
     // If `done' is not NULL, this method returns after request was sent
     // and `done->Run()' will be called when the call finishes, otherwise
     // caller blocks until the call finishes.
-    void CallMethod(const google::protobuf::MethodDescriptor* method,
-                    google::protobuf::RpcController* controller,
-                    const google::protobuf::Message* request,
-                    google::protobuf::Message* response,
-                    google::protobuf::Closure* done);
+    void CallMethod(const google::protobuf::MethodDescriptor* method,   // 要调用的远端服务
+                    google::protobuf::RpcController* controller,    // 包含附加数据和选项
+                    const google::protobuf::Message* request,   // 调用服务的请求
+                    google::protobuf::Message* response,    // 调用服务后的返回
+                    google::protobuf::Closure* done);   // 回调, 如果非NULL, 发出请求后会立即返回, 调用结束后会回调(异步);如果为NULL, 则会阻塞直到调用完成
 
     // Get current options.
     const ChannelOptions& options() const { return _options; }

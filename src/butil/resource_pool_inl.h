@@ -58,6 +58,7 @@ struct ResourceId {
     }
 };
 
+// 此结构用来记录空闲的chunk, 空闲的资源个数以及id数组
 template <typename T, size_t NITEM> 
 struct ResourcePoolFreeChunk {
     size_t nfree;
@@ -106,8 +107,8 @@ public:
 
     // Free identifiers are batched in a FreeChunk before they're added to
     // global list(_free_chunks).
-    typedef ResourcePoolFreeChunk<T, FREE_CHUNK_NITEM>      FreeChunk;
-    typedef ResourcePoolFreeChunk<T, 0> DynamicFreeChunk;
+    typedef ResourcePoolFreeChunk<T, FREE_CHUNK_NITEM>      FreeChunk;  // 大小固定
+    typedef ResourcePoolFreeChunk<T, 0> DynamicFreeChunk;               // 变长chunk
 
     // When a thread needs memory, it allocates a Block. To improve locality,
     // items in the Block are only used by the thread.
@@ -119,6 +120,7 @@ public:
         Block() : nitem(0) {}
     };
 
+    // BlockGroup用于管理block, 每个block中包含对应类型的数组, 相当于把数组穿起来
     // A Resource addresses at most RP_MAX_BLOCK_NGROUP BlockGroups,
     // each BlockGroup addresses at most RP_GROUP_NBLOCK blocks. So a
     // resource addresses at most RP_MAX_BLOCK_NGROUP * RP_GROUP_NBLOCK Blocks.
@@ -163,6 +165,8 @@ public:
         // and "new T" are different: former one sets all fields to 0 which
         // we don't want.
 #define BAIDU_RESOURCE_POOL_GET(CTOR_ARGS)                              \
+        /*获取本地空闲的资源, _cur_free是当前thread的local pool里的空闲资源chunk*/\
+        /*nfree是该chunk空闲资源个数，如果大于0，则根据nfree在对应位置取出一个free_id*/\
         /* Fetch local free id */                                       \
         if (_cur_free.nfree) {                                          \
             const ResourceId<T> free_id = _cur_free.ids[--_cur_free.nfree]; \
@@ -170,6 +174,7 @@ public:
             BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_SUB1;                   \
             return unsafe_address_resource(free_id);                    \
         }                                                               \
+        /*本地的空闲资源没有就从全局获取*/                              \
         /* Fetch a FreeChunk from global.                               \
            TODO: Popping from _free needs to copy a FreeChunk which is  \
            costly, but hardly impacts amortized performance. */         \
@@ -180,6 +185,7 @@ public:
             BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_SUB1;                   \
             return unsafe_address_resource(free_id);                    \
         }                                                               \
+        /*全局空闲资源也没有则优先考虑从本地block上新建对象*/\
         /* Fetch memory from local block */                             \
         if (_cur_block && _cur_block->nitem < BLOCK_NITEM) {            \
             id->value = _cur_block_index * BLOCK_NITEM + _cur_block->nitem; \
@@ -191,6 +197,7 @@ public:
             ++_cur_block->nitem;                                        \
             return p;                                                   \
         }                                                               \
+        /*如果_cur_block没初始化或者已经满了，则先新建一个block把指针赋给_cur_block，在block里新建对象*/\
         /* Fetch a Block from global */                                 \
         _cur_block = add_block(&_cur_block_index);                      \
         if (_cur_block != NULL) {                                       \
@@ -436,7 +443,7 @@ private:
     }
 
     inline LocalPool* get_or_new_local_pool() {
-        LocalPool* lp = _local_pool;
+        LocalPool* lp = _local_pool;    // thread local变量, 是整个资源分配的入口
         if (lp != NULL) {
             return lp;
         }
@@ -446,6 +453,7 @@ private:
         }
         BAIDU_SCOPED_LOCK(_change_thread_mutex); //avoid race with clear()
         _local_pool = lp;
+        // 为新建的_local_pool注册一个退出后删除的函数
         butil::thread_atexit(LocalPool::delete_local_pool, lp);
         _nlocal.fetch_add(1, butil::memory_order_relaxed);
         return lp;
@@ -526,6 +534,7 @@ private:
     }
 
     bool push_free_chunk(const FreeChunk& c) {
+        // DynamicFreeChunk* p的内存分配就利用了柔性数组的特性，根据c的大小来进行内存分配
         DynamicFreeChunk* p = (DynamicFreeChunk*)malloc(
             offsetof(DynamicFreeChunk, ids) + sizeof(*c.ids) * c.nfree);
         if (!p) {

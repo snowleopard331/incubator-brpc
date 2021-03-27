@@ -90,10 +90,12 @@ template <typename T> struct ResourcePoolValidator {
 
 namespace butil {
 
+// 获取对象的接口, 此函数不是类函数 
 // Get an object typed |T| and write its identifier into |id|.
 // The object should be cleared before usage.
 // NOTE: T must be default-constructible.
 template <typename T> inline T* get_resource(ResourceId<T>* id) {
+    // ResourcePool::singleton 是获取对应类型资源池的单例
     return ResourcePool<T>::singleton()->get_resource(id);
 }
 

@@ -382,6 +382,7 @@ static void GlobalInitializeOrDieImpl() {
         exit(1);
     }
 
+    // 注册各种协议的支持
     // Protocols
     Protocol baidu_protocol = { ParseRpcMessage,
                                 SerializeRequestDefault, PackRpcRequest,

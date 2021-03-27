@@ -1921,10 +1921,10 @@ AuthContext* Socket::mutable_auth_context() {
 int Socket::StartInputEvent(SocketId id, uint32_t events,
                             const bthread_attr_t& thread_attr) {
     SocketUniquePtr s;
-    if (Address(id, &s) < 0) {
+    if (Address(id, &s) < 0) {  // 根据socket id获取socket指针
         return -1;
     }
-    if (NULL == s->_on_edge_triggered_events) {
+    if (NULL == s->_on_edge_triggered_events) { // 回调为空则直接返回
         // Callback can be NULL when receiving error epoll events
         // (Added into epoll by `WaitConnected')
         return 0;
@@ -1944,6 +1944,8 @@ int Socket::StartInputEvent(SocketId id, uint32_t events,
     // Passing e[i].events causes complex visibility issues and
     // requires stronger memory fences, since reading the fd returns
     // error as well, we don't pass the events.
+    // socket中的_nevent为原子变量, 加1返回0说明没有其他bthread在处理此socket上的数据流,
+    // 若后续依然有数据流到达, 处理的bthread会一直读下去, 有定时器检查会将_nevent归零
     if (s->_nevent.fetch_add(1, butil::memory_order_acq_rel) == 0) {
         // According to the stats, above fetch_add is very effective. In a
         // server processing 1 million requests per second, this counter

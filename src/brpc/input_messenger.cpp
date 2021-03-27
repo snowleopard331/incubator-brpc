@@ -185,7 +185,7 @@ void InputMessenger::OnNewMessages(Socket* m) {
     // OK in most cases.
     std::unique_ptr<InputMessageBase, RunLastMessage> last_msg;
     bool read_eof = false;
-    while (!read_eof) {
+    while (!read_eof) { // 没读完就一直读下去
         const int64_t received_us = butil::cpuwide_time_us();
         const int64_t base_realtime = butil::gettimeofday_us() - received_us;
 
@@ -230,6 +230,7 @@ void InputMessenger::OnNewMessages(Socket* m) {
         size_t last_size = m->_read_buf.length();
         int num_bthread_created = 0;
         while (1) {
+            // 执行一次切割消息
             size_t index = 8888;
             ParseResult pr = messenger->CutInputMessage(m, &index, read_eof);
             if (!pr.is_ok()) {
@@ -285,7 +286,7 @@ void InputMessenger::OnNewMessages(Socket* m) {
             // ownership to last_msg
             DestroyingPtr<InputMessageBase> msg(pr.message());
             QueueMessage(last_msg.release(), &num_bthread_created,
-                             m->_keytable_pool);
+                             m->_keytable_pool);    // 启动一个bthread来处理一个msg
             if (handlers[index].process == NULL) {
                 LOG(ERROR) << "process of index=" << index << " is NULL";
                 continue;
