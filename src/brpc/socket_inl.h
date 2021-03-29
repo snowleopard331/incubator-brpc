@@ -85,6 +85,9 @@ inline int Socket::Dereference() {
         // before rather than `SetFailed'; `ver == ide_ver+1' means we
         // had `SetFailed' this socket before. We should destroy the
         // socket under both situation
+        // ver == id_ver || ver == id_ver + 1这个判断条件ver == id_ver表示当前版本没有变化，
+        // 意味着没有被setfailed，属于用完了没其他人用了就回收的情况，ver == id_ver + 1
+        // 则是说明先前被setfailed了，无论哪种情况都需要销毁这个socket并返回给resource pool
         if (__builtin_expect(ver == id_ver || ver == id_ver + 1, 1)) {
             // sees nref:1->0, try to set version=id_ver+2,--nref.
             // No retry: if version changes, the slot is already returned by
@@ -121,9 +124,11 @@ inline int Socket::Dereference() {
     return -1;
 }
 
+// 传入一个socket id，并把ptr指向根据id找到的socket
 inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
     const butil::ResourceId<Socket> slot = SlotOfSocketId(id);
-    Socket* const m = address_resource(slot);
+    Socket* const m = address_resource(slot);   // 根据id中的低32bit从资源池中找到socket对象
+    // __builtin_expect是gcc指令，和普通的条件语句的区别在于额外告诉编译器m!=NULL大概率为真，用于做指令跳转的优化
     if (__builtin_expect(m != NULL, 1)) {
         // acquire fence makes sure this thread sees latest changes before
         // Dereference() or Revive().
@@ -135,14 +140,19 @@ inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
             return 0;
         }
 
+        // 如果socketId的版本和socket实际的版本不匹配，说明有操作让socket失效了，后续尝试进行回收操作，先用fetch_sub减掉先加的1
         const uint64_t vref2 = m->_versioned_ref.fetch_sub(
             1, butil::memory_order_release);
         const int32_t nref = NRefOfVRef(vref2);
-        if (nref > 1) {
+        if (nref > 1) { // 如果大于1，说明还有其他人在用
             return -1;
-        } else if (__builtin_expect(nref == 1, 1)) {
+        } else if (__builtin_expect(nref == 1, 1)) {    // 尝试归还到resource pool
             const uint32_t ver2 = VersionOfVRef(vref2);
-            if ((ver2 & 1)) {
+            if ((ver2 & 1)) {   // 判断当前版本的奇偶, 奇数说明被加过一次1
+                // 一直是奇数没变和原来是偶数仅仅加了一个1的情况，这个条件可以保证
+                // 整个过程仍然是socketId指代的那个socket，来自resource pool的socket
+                // 是会被重用，ver是会不断累加的
+                // 这里之所以逻辑这么复杂是为了实现address的wait-free
                 if (ver1 == ver2 || ver1 + 1 == ver2) {
                     uint64_t expected_vref = vref2 - 1;
                     if (m->_versioned_ref.compare_exchange_strong(
@@ -156,7 +166,7 @@ inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
                     CHECK(false) << "ref-version=" << ver1
                                  << " unref-version=" << ver2;
                 }
-            } else {
+            } else {    // 版本偶数, 说明已经被其他地方销毁归还了
                 CHECK_EQ(ver1, ver2);
                 // Addressed a free slot.
             }

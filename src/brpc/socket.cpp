@@ -569,6 +569,7 @@ int Socket::ResetFileDescriptor(int fd) {
     }
 
     if (_on_edge_triggered_events) {
+        // 将fd注册到epoll中, epoll事件的data是socketID, event diapatcher是brcp中用于分发epoll事件的组件
         if (GetGlobalEventDispatcher(fd).AddConsumer(id(), fd) != 0) {
             PLOG(ERROR) << "Fail to add SocketId=" << id() 
                         << " into EventDispatcher";
@@ -595,7 +596,7 @@ int Socket::Create(const SocketOptions& options, SocketId* id) {
     m->_keytable_pool = options.keytable_pool;
     m->_tos = 0;
     m->_remote_side = options.remote_side;
-    m->_on_edge_triggered_events = options.on_edge_triggered_events;
+    m->_on_edge_triggered_events = options.on_edge_triggered_events;    // 用户回调
     m->_user = options.user;
     m->_conn = options.conn;
     m->_app_connect = options.app_connect;
@@ -770,6 +771,7 @@ void Socket::Revive() {
 
 int Socket::ReleaseAdditionalReference() {
     bool expect = false;
+    // _recycle_flag来保证只会执行一次附加dereference
     // Use `relaxed' fence here since `Dereference' has `released' fence
     if (_recycle_flag.compare_exchange_strong(
             expect, true,
@@ -803,6 +805,9 @@ int Socket::isolated_times() const {
     return 0;
 }
 
+// SetFailed是用于标记和某个id关联的socket失效的，某个socketid一旦被setfailed，
+// 之后对其的Adress都会返回null，需要注意的是，这个函数调用不会让对应的socket马上回收，
+// 而是在没有人引用它的时候才会被回收
 int Socket::SetFailed(int error_code, const char* error_fmt, ...) {
     if (error_code == 0) {
         CHECK(false) << "error_code is 0";
@@ -811,15 +816,21 @@ int Socket::SetFailed(int error_code, const char* error_fmt, ...) {
     const uint32_t id_ver = VersionOfSocketId(_this_id);
     uint64_t vref = _versioned_ref.load(butil::memory_order_relaxed);
     for (;;) {  // need iteration to retry compare_exchange_strong
+        // socketid中提取的版本和_versioned_ref中提取的版本比较，
+        // 如果不相等说明已经有其他地方让这个socket失效了, 直接返回
         if (VersionOfVRef(vref) != id_ver) {
             return -1;
         }
+        // 判断版本和引用计数是不是都没变
+        // compare_exchange_strong：atomic库中的一个函数，入参是3个，expect，desire，
+        // memoryorder，意思是如果当前的变量this的值 == expect值，则将this值改为desire，
+        // 并返回true，否则，返回false，不进行修改，即进行一个读的操作
         // Try to set version=id_ver+1 (to make later Address() return NULL),
         // retry on fail.
         if (_versioned_ref.compare_exchange_strong(
                 vref, MakeVRef(id_ver + 1, NRefOfVRef(vref)),
                 butil::memory_order_release,
-                butil::memory_order_relaxed)) {
+                butil::memory_order_relaxed)) { // 只有这里成功后才进行一系列的释放操作
             // Update _error_text
             std::string error_text;
             if (error_fmt != NULL) {

@@ -220,6 +220,7 @@ int EventDispatcher::RemoveEpollOut(SocketId socket_id,
     return -1;
 }
 
+// epoll添加事件
 int EventDispatcher::AddConsumer(SocketId socket_id, int fd) {
     if (_epfd < 0) {
         errno = EINVAL;
@@ -227,8 +228,8 @@ int EventDispatcher::AddConsumer(SocketId socket_id, int fd) {
     }
 #if defined(OS_LINUX)
     epoll_event evt;
-    evt.events = EPOLLIN | EPOLLET;
-    evt.data.u64 = socket_id;
+    evt.events = EPOLLIN | EPOLLET; // 事件类型, 边缘触发的EPOLLIN
+    evt.data.u64 = socket_id;       // 保存socket_id
 #ifdef BRPC_SOCKET_HAS_EOF
     evt.events |= has_epollrdhup;
 #endif
@@ -268,6 +269,7 @@ int EventDispatcher::RemoveConsumer(int fd) {
     return 0;
 }
 
+// 封装了Run，用于在bthread里启动调用Run
 void* EventDispatcher::RunThis(void* arg) {
     ((EventDispatcher*)arg)->Run();
     return NULL;

@@ -71,6 +71,7 @@ public:
     // Returns true on pushed.
     // May run in parallel with steal().
     // Never run in parallel with pop() or another push().
+    // 往bottom侧添加元素
     bool push(const T& x) {
         const size_t b = _bottom.load(butil::memory_order_relaxed);
         const size_t t = _top.load(butil::memory_order_acquire);
@@ -86,6 +87,7 @@ public:
     // Returns true on popped and the item is written to `val'.
     // May run in parallel with steal().
     // Never run in parallel with push() or another pop().
+    // 从bottom侧取数据
     bool pop(T* val) {
         const size_t b = _bottom.load(butil::memory_order_relaxed);
         size_t t = _top.load(butil::memory_order_relaxed);
@@ -94,11 +96,17 @@ public:
             // Stale _top which is smaller should not enter this branch.
             return false;
         }
+        // 因为会和从top侧取的steal同时运行，核心思想是先把bottom减1，锁定掉一个元素，
+        // 防止被steal取，在只有一个元素的时候会和steal竞争。而且很重要的一点，这个
+        // bottom的减1一定要被steal及时感知到，否则就会出现一个元素多次拿到的问题
         const size_t newb = b - 1;
         _bottom.store(newb, butil::memory_order_relaxed);
+        // 保证数据同步的关键，这行代码在x86-64cpu上对应的典型指令是MFENCE，可以保证
+        // MFENCE之后的指令在执行之前MFENCE前面的修改全局可见，也就可以保证t赋值完成后
+        // bottom的store已经全局可见了
         butil::atomic_thread_fence(butil::memory_order_seq_cst);
         t = _top.load(butil::memory_order_relaxed);
-        if (t > newb) {
+        if (t > newb) { // 判断是否有可取元素
             _bottom.store(b, butil::memory_order_relaxed);
             return false;
         }
@@ -116,6 +124,7 @@ public:
     // Steal one item from the queue.
     // Returns true on stolen.
     // May run in parallel with push() pop() or another steal().
+    // steal()会与push()/pop()或者其他的steal()并发
     bool steal(T* val) {
         size_t t = _top.load(butil::memory_order_acquire);
         size_t b = _bottom.load(butil::memory_order_acquire);
@@ -124,7 +133,20 @@ public:
             return false;
         }
         do {
-            butil::atomic_thread_fence(butil::memory_order_seq_cst);
+            // 戈神举过一个相关例子，前面文章也有人问到了这个，这里阐述下，假设top=1，
+            // bottom=3，pop先置newb=2，bottom=newb=2，然后读取了一个t=top=1，随后有两个
+            // steal争抢，其中一个成功了，此时top=2，失败的继续循环，如果因为数据同步的
+            // 原因此时没看到pop置的bottom=2，也就是没有全局可见，那么steal线程里仍然是
+            // b=bottom=3，这次cas能成功置top=3，因为pop线程是原来读取的t，t!=newb成立也
+            // 成功，导致一个元素返回了两次。
+            // 而一旦pop函数里有了atomic_thread_fence(butil::memory_order_seq_cst)，在
+            // x86 - 64的实际实现上通常是插入mfence指令，这个指令会让前面的store全局可见，
+            // 这样一来，无论那两个steal的第一次cas循环读到的是新的bottom还是老的bottom，
+            // 失败后再循环的那一个第二次读到的肯定是新的bottom，随即因为t >= b失败，
+            // 这样就只有pop返回了。如果atomic_thread_fence(butil::memory_order_seq_cst)
+            // 是用mfence实现的，这个场景的steal里的butil::atomic_thread_fence(butil::memory_order_seq_cst)是可以不需要的，看戈神在那个issue里的回复是
+            // 担心实现的不确定性，以及为了明确所以也写了
+            butil::atomic_thread_fence(butil::memory_order_seq_cst);    // 为了保证取元素竞争情况下的正确性
             b = _bottom.load(butil::memory_order_acquire);
             if (t >= b) {
                 return false;
