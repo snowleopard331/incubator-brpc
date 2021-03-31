@@ -133,7 +133,7 @@ public:
             return false;
         }
         do {
-            // 戈神举过一个相关例子，前面文章也有人问到了这个，这里阐述下，假设top=1，
+            // 作者举过一个相关例子，前面文章也有人问到了这个，这里阐述下，假设top=1，
             // bottom=3，pop先置newb=2，bottom=newb=2，然后读取了一个t=top=1，随后有两个
             // steal争抢，其中一个成功了，此时top=2，失败的继续循环，如果因为数据同步的
             // 原因此时没看到pop置的bottom=2，也就是没有全局可见，那么steal线程里仍然是
@@ -144,9 +144,9 @@ public:
             // 这样一来，无论那两个steal的第一次cas循环读到的是新的bottom还是老的bottom，
             // 失败后再循环的那一个第二次读到的肯定是新的bottom，随即因为t >= b失败，
             // 这样就只有pop返回了。如果atomic_thread_fence(butil::memory_order_seq_cst)
-            // 是用mfence实现的，这个场景的steal里的butil::atomic_thread_fence(butil::memory_order_seq_cst)是可以不需要的，看戈神在那个issue里的回复是
+            // 是用mfence实现的，这个场景的steal里的butil::atomic_thread_fence(butil::memory_order_seq_cst)是可以不需要的，看作者在那个issue里的回复是
             // 担心实现的不确定性，以及为了明确所以也写了
-            butil::atomic_thread_fence(butil::memory_order_seq_cst);    // 为了保证取元素竞争情况下的正确性
+            butil::atomic_thread_fence(butil::memory_order_seq_cst);    // 为了保证取出元素在竞争情况下的正确性
             b = _bottom.load(butil::memory_order_acquire);
             if (t >= b) {
                 return false;
