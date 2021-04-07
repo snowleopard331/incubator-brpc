@@ -198,8 +198,13 @@ public:
     //    using them. As a result, one call_mapper or response_merger can be
     //    associated to different sub channels without any problem.
     // CAUTION:
-    //   AddChannel() during CallMethod() is thread-unsafe!
+    //   AddChannel() during CallMethod() is thread-unsafe!     线程不安全
     // Returns 0 on success, -1 otherwise.
+
+    // 当ownership为brpc::OWNS_CHANNEL时，sub_channel会在ParallelChannel析构时被删除。
+    // 一个sub channel可能会多次加入一个ParallelChannel，如果其中一个指明了ownership
+    // 为brpc::OWNS_CHANNEL，那个sub channel会在ParallelChannel析构时被最多删除一次
+    // 访问ParallelChannel时调用AddChannel是线程不安全的
     int AddChannel(ChannelBase* sub_channel,
                    ChannelOwnership ownership,
                    CallMapper* call_mapper,

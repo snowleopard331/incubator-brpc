@@ -165,8 +165,10 @@ public:
         // and "new T" are different: former one sets all fields to 0 which
         // we don't want.
 #define BAIDU_RESOURCE_POOL_GET(CTOR_ARGS)                              \
+        /*这里获取对象分四层缓存*/                                      \
         /*获取本地空闲的资源, _cur_free是当前thread的local pool里的空闲资源chunk*/\
         /*nfree是该chunk空闲资源个数，如果大于0，则根据nfree在对应位置取出一个free_id*/\
+        /*如果本地FreeChunk不是空的，则直接复用其中一个id，定义到唯一执行的T对象地址并返回。*/\
         /* Fetch local free id */                                       \
         if (_cur_free.nfree) {                                          \
             const ResourceId<T> free_id = _cur_free.ids[--_cur_free.nfree]; \
@@ -174,7 +176,7 @@ public:
             BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_SUB1;                   \
             return unsafe_address_resource(free_id);                    \
         }                                                               \
-        /*本地的空闲资源没有就从全局获取*/                              \
+        /*如果本地FreeChunk是空的，则从全局的free列表_free_chunks中copy一个FreeChunk到本地，然后复用其中一个id，定义到唯一执行的T对象地址并返回*/\
         /* Fetch a FreeChunk from global.                               \
            TODO: Popping from _free needs to copy a FreeChunk which is  \
            costly, but hardly impacts amortized performance. */         \
@@ -188,6 +190,7 @@ public:
         /*全局空闲资源也没有则优先考虑从本地block上新建对象*/\
         /* Fetch memory from local block */                             \
         if (_cur_block && _cur_block->nitem < BLOCK_NITEM) {            \
+            /*这个value很重要，能够定位是哪个block group下的哪个block下的第几个item(因为每一级数组都是固定的长度)*/\
             id->value = _cur_block_index * BLOCK_NITEM + _cur_block->nitem; \
             T* p = new ((T*)_cur_block->items + _cur_block->nitem) T CTOR_ARGS; \
             if (!ResourcePoolValidator<T>::validate(p)) {               \
@@ -231,13 +234,17 @@ public:
 
         inline int return_resource(ResourceId<T> id) {
             // Return to local free list
+            // _cur_free是FreeChunk类型；返还id到本地的free列表中
             if (_cur_free.nfree < ResourcePool::free_chunk_nitem()) {
+                // 把归还的id放到FreeChunk的ids数组中
                 _cur_free.ids[_cur_free.nfree++] = id;
                 BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_ADD1;
                 return 0;
             }
             // Local free list is full, return it to global.
             // For copying issue, check comment in upper get()
+            // 一旦本地free列表满了，则把这个满的FreeChunk归还给全局free列表，
+            // 然后把新的id插入到_cur_free中，又重新开始收集
             if (_pool->push_free_chunk(_cur_free)) {
                 _cur_free.nfree = 1;
                 _cur_free.ids[0] = id;
@@ -285,8 +292,10 @@ public:
     }
 
     inline T* get_resource(ResourceId<T>* id) {
+        // 首先获取线程本地对象LocalPool指针，首次调用时没有则创建一个
         LocalPool* lp = get_or_new_local_pool();
         if (__builtin_expect(lp != NULL, 1)) {
+            // 调用LocalPool的get函数
             return lp->get(id);
         }
         return NULL;
@@ -535,6 +544,7 @@ private:
 
     bool push_free_chunk(const FreeChunk& c) {
         // DynamicFreeChunk* p的内存分配就利用了柔性数组的特性，根据c的大小来进行内存分配
+        // 动态的原因是因为返还的FreeChunk不一定是满的，例如某个线程退出、销毁LocalPool时归还的FreeChunk就不一定是满的
         DynamicFreeChunk* p = (DynamicFreeChunk*)malloc(
             offsetof(DynamicFreeChunk, ids) + sizeof(*c.ids) * c.nfree);
         if (!p) {
@@ -550,13 +560,17 @@ private:
     
     static butil::static_atomic<ResourcePool*> _singleton;
     static pthread_mutex_t _singleton_mutex;
+    // 线程本地数据，每个线程一个LocalPool
+    // TLS能避免多线程竞争，这也是消除锁提升性能的核心
     static BAIDU_THREAD_LOCAL LocalPool* _local_pool;
     static butil::static_atomic<long> _nlocal;
     static butil::static_atomic<size_t> _ngroup;
     static pthread_mutex_t _block_group_mutex;
     static pthread_mutex_t _change_thread_mutex;
+    // 保存所有实际T对象空间的block的集合：BlockGroup
     static butil::static_atomic<BlockGroup*> _block_groups[RP_MAX_BLOCK_NGROUP];
 
+    // 回收各个线程归还的FreeChunk(不一定存满所以动态)
     std::vector<DynamicFreeChunk*> _free_chunks;
     pthread_mutex_t _free_chunks_mutex;
 

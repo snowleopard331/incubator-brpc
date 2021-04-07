@@ -49,6 +49,11 @@ namespace brpc {
 // valid before the RPC ends. Other channels do not. If you're doing async
 // calls with SelectiveChannel, make sure that `request' is owned and deleted
 // in `done'.
+
+// SelectiveChannel (有时被称为“schan”)按负载均衡算法访问其包含的Channel，
+// 相比普通Channel它更加高层：把流量分给sub channel，而不是具体的Server。
+// SelectiveChannel主要用来支持机器组之间的负载均衡
+
 class SelectiveChannel : public ChannelBase/*non-copyable*/ {
 public:
     typedef SocketId ChannelHandle;

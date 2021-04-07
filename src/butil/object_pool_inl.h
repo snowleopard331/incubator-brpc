@@ -97,6 +97,7 @@ public:
     // items in the Block are only used by the thread.
     // To support cache-aligned objects, align Block.items by cacheline.
     struct BAIDU_CACHELINE_ALIGNMENT Block {
+        // new之后就是长度为BLOCK_NITEM的 T 数组
         char items[sizeof(T) * BLOCK_NITEM];
         size_t nitem;
 
@@ -146,6 +147,7 @@ public:
         // and "new T" are different: former one sets all fields to 0 which
         // we don't want.
 #define BAIDU_OBJECT_POOL_GET(CTOR_ARGS)                                \
+        /*这里获取对象分四层缓存*/                                      \
         /* Fetch local free ptr */                                      \
         if (_cur_free.nfree) { /*如果对象池中有剩余则直接返回*/         \
             BAIDU_OBJECT_POOL_FREE_ITEM_NUM_SUB1;                       \
@@ -170,6 +172,7 @@ public:
             return obj;                                                 \
         }                                                               \
         /* 走到这里说明构造对象构造失败了, 则新建一个block再new*/       \
+        /*add_block是ResourcePool类的static函数（嵌套类可以直接使用外部类的静态成员函数）*/\
         /* Fetch a Block from global */                                 \
         _cur_block = add_block(&_cur_block_index);                      \
         if (_cur_block != NULL) {                                       \
@@ -330,15 +333,21 @@ private:
         pthread_mutex_destroy(&_free_chunks_mutex);
     }
 
+    // 创建一个Block对象并插入到BlockGroup的最右边
     // Create a Block and append it to right-most BlockGroup.
     static Block* add_block(size_t* index) {
+        // 创建一个新的block对象
         Block* const new_block = new(std::nothrow) Block;
         if (NULL == new_block) {
             return NULL;
         }
         size_t ngroup;
         do {
+            // 获取当前block group的个数
             ngroup = _ngroup.load(butil::memory_order_acquire);
+            // 如果当前block group个数大于0，那么看看最后的BlockGroup是不是已经满了，
+            // 如果没满则把新的block对象插入到这个BlockGroup中，并计算它的全局索引index，
+            // 如果满了则新建一个BlockGroup，再插入block对象
             if (ngroup >= 1) {
                 BlockGroup* const g =
                     _block_groups[ngroup - 1].load(butil::memory_order_consume);
@@ -347,6 +356,7 @@ private:
                 if (block_index < OP_GROUP_NBLOCK) {
                     g->blocks[block_index].store(
                         new_block, butil::memory_order_release);
+                    // 这个index是全局的block index，不是所属的group的block_index
                     *index = (ngroup - 1) * OP_GROUP_NBLOCK + block_index;
                     return new_block;
                 }

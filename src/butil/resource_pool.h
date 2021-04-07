@@ -91,6 +91,7 @@ template <typename T> struct ResourcePoolValidator {
 namespace butil {
 
 // 获取对象的接口, 此函数不是类函数 
+// 返回对象T的指针，并返回唯一标识该T对象的id：ResourceId<T>类型（这个类型里其实就是一个uint64_t的value）
 // Get an object typed |T| and write its identifier into |id|.
 // The object should be cleared before usage.
 // NOTE: T must be default-constructible.
@@ -99,18 +100,22 @@ template <typename T> inline T* get_resource(ResourceId<T>* id) {
     return ResourcePool<T>::singleton()->get_resource(id);
 }
 
+// T对象是通过 T(arg1)构造的
 // Get an object whose constructor is T(arg1)
 template <typename T, typename A1>
 inline T* get_resource(ResourceId<T>* id, const A1& arg1) {
     return ResourcePool<T>::singleton()->get_resource(id, arg1);
 }
 
+// T对象是通过 T(arg1, arg2) 构造的
 // Get an object whose constructor is T(arg1, arg2)
 template <typename T, typename A1, typename A2>
 inline T* get_resource(ResourceId<T>* id, const A1& arg1, const A2& arg2) {
     return ResourcePool<T>::singleton()->get_resource(id, arg1, arg2);
 }
-
+// 返还资源，这里返还的是id（get_resource得到的），而不是T对象或指针。
+// 注意：与free/delete类似，id的有效性是没有被检查的，使用者不能返还
+// 一个还未申请或者已经返还的id，否则行为是未定义的
 // Return the object associated with identifier |id| back. The object is NOT
 // destructed and will be returned by later get_resource<T>. Similar with
 // free/delete, validity of the id is not checked, user shall not return a
@@ -120,6 +125,8 @@ template <typename T> inline int return_resource(ResourceId<T> id) {
     return ResourcePool<T>::singleton()->return_resource(id);
 }
 
+// 根据id找到并返回实际的T对象指针，如果id还没有被分配成一个变量则会返回NULL。
+// 对一个已经返还到资源池的id寻址不会返回NULL
 // Get the object associated with the identifier |id|.
 // Returns NULL if |id| was not allocated by get_resource<T> or
 // ResourcePool<T>::get_resource() of a variant before.
