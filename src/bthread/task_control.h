@@ -112,7 +112,7 @@ private:
     bvar::Adder<int64_t> _nbthreads;
 
     static const int PARKING_LOT_NUM = 4;
-    ParkingLot _pl[PARKING_LOT_NUM];    // È«¾ÖÖ»ÓĞÒ»¸öTC, ËùÒÔÈ«¾ÖÒ²Ö»ÓĞ4¸öPL¶ÔÏó
+    ParkingLot _pl[PARKING_LOT_NUM];    // å…¨å±€åªæœ‰ä¸€ä¸ªTC, æ‰€ä»¥å…¨å±€ä¹Ÿåªæœ‰4ä¸ªPLå¯¹è±¡
 };
 
 inline bvar::LatencyRecorder& TaskControl::exposed_pending_time() {

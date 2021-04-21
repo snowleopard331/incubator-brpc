@@ -183,11 +183,11 @@ public:
     // If `done' is not NULL, this method returns after request was sent
     // and `done->Run()' will be called when the call finishes, otherwise
     // caller blocks until the call finishes.
-    void CallMethod(const google::protobuf::MethodDescriptor* method,   // Òªµ÷ÓÃµÄÔ¶¶Ë·şÎñ
-                    google::protobuf::RpcController* controller,    // °üº¬¸½¼ÓÊı¾İºÍÑ¡Ïî
-                    const google::protobuf::Message* request,   // µ÷ÓÃ·şÎñµÄÇëÇó
-                    google::protobuf::Message* response,    // µ÷ÓÃ·şÎñºóµÄ·µ»Ø
-                    google::protobuf::Closure* done);   // »Øµ÷, Èç¹û·ÇNULL, ·¢³öÇëÇóºó»áÁ¢¼´·µ»Ø, µ÷ÓÃ½áÊøºó»á»Øµ÷(Òì²½);Èç¹ûÎªNULL, Ôò»á×èÈûÖ±µ½µ÷ÓÃÍê³É
+    void CallMethod(const google::protobuf::MethodDescriptor* method,   // è¦è°ƒç”¨çš„è¿œç«¯æœåŠ¡
+                    google::protobuf::RpcController* controller,    // åŒ…å«é™„åŠ æ•°æ®å’Œé€‰é¡¹
+                    const google::protobuf::Message* request,   // è°ƒç”¨æœåŠ¡çš„è¯·æ±‚
+                    google::protobuf::Message* response,    // è°ƒç”¨æœåŠ¡åçš„è¿”å›
+                    google::protobuf::Closure* done);   // å›è°ƒ, å¦‚æœéNULL, å‘å‡ºè¯·æ±‚åä¼šç«‹å³è¿”å›, è°ƒç”¨ç»“æŸåä¼šå›è°ƒ(å¼‚æ­¥);å¦‚æœä¸ºNULL, åˆ™ä¼šé˜»å¡ç›´åˆ°è°ƒç”¨å®Œæˆ
 
     // Get current options.
     const ChannelOptions& options() const { return _options; }

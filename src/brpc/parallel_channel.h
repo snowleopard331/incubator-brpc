@@ -198,13 +198,13 @@ public:
     //    using them. As a result, one call_mapper or response_merger can be
     //    associated to different sub channels without any problem.
     // CAUTION:
-    //   AddChannel() during CallMethod() is thread-unsafe!     Ïß³Ì²»°²È«
+    //   AddChannel() during CallMethod() is thread-unsafe!     çº¿ç¨‹ä¸å®‰å…¨
     // Returns 0 on success, -1 otherwise.
 
-    // µ±ownershipÎªbrpc::OWNS_CHANNELÊ±£¬sub_channel»áÔÚParallelChannelÎö¹¹Ê±±»É¾³ı¡£
-    // Ò»¸ösub channel¿ÉÄÜ»á¶à´Î¼ÓÈëÒ»¸öParallelChannel£¬Èç¹ûÆäÖĞÒ»¸öÖ¸Ã÷ÁËownership
-    // Îªbrpc::OWNS_CHANNEL£¬ÄÇ¸ösub channel»áÔÚParallelChannelÎö¹¹Ê±±»×î¶àÉ¾³ıÒ»´Î
-    // ·ÃÎÊParallelChannelÊ±µ÷ÓÃAddChannelÊÇÏß³Ì²»°²È«µÄ
+    // å½“ownershipä¸ºbrpc::OWNS_CHANNELæ—¶ï¼Œsub_channelä¼šåœ¨ParallelChannelææ„æ—¶è¢«åˆ é™¤ã€‚
+    // ä¸€ä¸ªsub channelå¯èƒ½ä¼šå¤šæ¬¡åŠ å…¥ä¸€ä¸ªParallelChannelï¼Œå¦‚æœå…¶ä¸­ä¸€ä¸ªæŒ‡æ˜äº†ownership
+    // ä¸ºbrpc::OWNS_CHANNELï¼Œé‚£ä¸ªsub channelä¼šåœ¨ParallelChannelææ„æ—¶è¢«æœ€å¤šåˆ é™¤ä¸€æ¬¡
+    // è®¿é—®ParallelChannelæ—¶è°ƒç”¨AddChannelæ˜¯çº¿ç¨‹ä¸å®‰å…¨çš„
     int AddChannel(ChannelBase* sub_channel,
                    ChannelOwnership ownership,
                    CallMapper* call_mapper,

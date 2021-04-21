@@ -569,7 +569,7 @@ int Socket::ResetFileDescriptor(int fd) {
     }
 
     if (_on_edge_triggered_events) {
-        // ½«fd×¢²áµ½epollÖĞ, epollÊÂ¼şµÄdataÊÇsocketID, event diapatcherÊÇbrcpÖĞÓÃÓÚ·Ö·¢epollÊÂ¼şµÄ×é¼ş
+        // å°†fdæ³¨å†Œåˆ°epollä¸­, epolläº‹ä»¶çš„dataæ˜¯socketID, event diapatcheræ˜¯brcpä¸­ç”¨äºåˆ†å‘epolläº‹ä»¶çš„ç»„ä»¶
         if (GetGlobalEventDispatcher(fd).AddConsumer(id(), fd) != 0) {
             PLOG(ERROR) << "Fail to add SocketId=" << id() 
                         << " into EventDispatcher";
@@ -596,7 +596,7 @@ int Socket::Create(const SocketOptions& options, SocketId* id) {
     m->_keytable_pool = options.keytable_pool;
     m->_tos = 0;
     m->_remote_side = options.remote_side;
-    m->_on_edge_triggered_events = options.on_edge_triggered_events;    // ÓÃ»§»Øµ÷
+    m->_on_edge_triggered_events = options.on_edge_triggered_events;    // ç”¨æˆ·å›è°ƒ
     m->_user = options.user;
     m->_conn = options.conn;
     m->_app_connect = options.app_connect;
@@ -771,7 +771,7 @@ void Socket::Revive() {
 
 int Socket::ReleaseAdditionalReference() {
     bool expect = false;
-    // _recycle_flagÀ´±£Ö¤Ö»»áÖ´ĞĞÒ»´Î¸½¼Ódereference
+    // _recycle_flagæ¥ä¿è¯åªä¼šæ‰§è¡Œä¸€æ¬¡é™„åŠ dereference
     // Use `relaxed' fence here since `Dereference' has `released' fence
     if (_recycle_flag.compare_exchange_strong(
             expect, true,
@@ -805,9 +805,9 @@ int Socket::isolated_times() const {
     return 0;
 }
 
-// SetFailedÊÇÓÃÓÚ±ê¼ÇºÍÄ³¸öid¹ØÁªµÄsocketÊ§Ğ§µÄ£¬Ä³¸ösocketidÒ»µ©±»setfailed£¬
-// Ö®ºó¶ÔÆäµÄAdress¶¼»á·µ»Ønull£¬ĞèÒª×¢ÒâµÄÊÇ£¬Õâ¸öº¯Êıµ÷ÓÃ²»»áÈÃ¶ÔÓ¦µÄsocketÂíÉÏ»ØÊÕ£¬
-// ¶øÊÇÔÚÃ»ÓĞÈËÒıÓÃËüµÄÊ±ºò²Å»á±»»ØÊÕ
+// SetFailedæ˜¯ç”¨äºæ ‡è®°å’ŒæŸä¸ªidå…³è”çš„socketå¤±æ•ˆçš„ï¼ŒæŸä¸ªsocketidä¸€æ—¦è¢«setfailedï¼Œ
+// ä¹‹åå¯¹å…¶çš„Adresséƒ½ä¼šè¿”å›nullï¼Œéœ€è¦æ³¨æ„çš„æ˜¯ï¼Œè¿™ä¸ªå‡½æ•°è°ƒç”¨ä¸ä¼šè®©å¯¹åº”çš„socketé©¬ä¸Šå›æ”¶ï¼Œ
+// è€Œæ˜¯åœ¨æ²¡æœ‰äººå¼•ç”¨å®ƒçš„æ—¶å€™æ‰ä¼šè¢«å›æ”¶
 int Socket::SetFailed(int error_code, const char* error_fmt, ...) {
     if (error_code == 0) {
         CHECK(false) << "error_code is 0";
@@ -816,21 +816,21 @@ int Socket::SetFailed(int error_code, const char* error_fmt, ...) {
     const uint32_t id_ver = VersionOfSocketId(_this_id);
     uint64_t vref = _versioned_ref.load(butil::memory_order_relaxed);
     for (;;) {  // need iteration to retry compare_exchange_strong
-        // socketidÖĞÌáÈ¡µÄ°æ±¾ºÍ_versioned_refÖĞÌáÈ¡µÄ°æ±¾±È½Ï£¬
-        // Èç¹û²»ÏàµÈËµÃ÷ÒÑ¾­ÓĞÆäËûµØ·½ÈÃÕâ¸ösocketÊ§Ğ§ÁË, Ö±½Ó·µ»Ø
+        // socketidä¸­æå–çš„ç‰ˆæœ¬å’Œ_versioned_refä¸­æå–çš„ç‰ˆæœ¬æ¯”è¾ƒï¼Œ
+        // å¦‚æœä¸ç›¸ç­‰è¯´æ˜å·²ç»æœ‰å…¶ä»–åœ°æ–¹è®©è¿™ä¸ªsocketå¤±æ•ˆäº†, ç›´æ¥è¿”å›
         if (VersionOfVRef(vref) != id_ver) {
             return -1;
         }
-        // ÅĞ¶Ï°æ±¾ºÍÒıÓÃ¼ÆÊıÊÇ²»ÊÇ¶¼Ã»±ä
-        // compare_exchange_strong£ºatomic¿âÖĞµÄÒ»¸öº¯Êı£¬Èë²ÎÊÇ3¸ö£¬expect£¬desire£¬
-        // memoryorder£¬ÒâË¼ÊÇÈç¹ûµ±Ç°µÄ±äÁ¿thisµÄÖµ == expectÖµ£¬Ôò½«thisÖµ¸ÄÎªdesire£¬
-        // ²¢·µ»Øtrue£¬·ñÔò£¬·µ»Øfalse£¬²»½øĞĞĞŞ¸Ä£¬¼´½øĞĞÒ»¸ö¶ÁµÄ²Ù×÷
+        // åˆ¤æ–­ç‰ˆæœ¬å’Œå¼•ç”¨è®¡æ•°æ˜¯ä¸æ˜¯éƒ½æ²¡å˜
+        // compare_exchange_strongï¼šatomicåº“ä¸­çš„ä¸€ä¸ªå‡½æ•°ï¼Œå…¥å‚æ˜¯3ä¸ªï¼Œexpectï¼Œdesireï¼Œ
+        // memoryorderï¼Œæ„æ€æ˜¯å¦‚æœå½“å‰çš„å˜é‡thisçš„å€¼ == expectå€¼ï¼Œåˆ™å°†thiså€¼æ”¹ä¸ºdesireï¼Œ
+        // å¹¶è¿”å›trueï¼Œå¦åˆ™ï¼Œè¿”å›falseï¼Œä¸è¿›è¡Œä¿®æ”¹ï¼Œå³è¿›è¡Œä¸€ä¸ªè¯»çš„æ“ä½œ
         // Try to set version=id_ver+1 (to make later Address() return NULL),
         // retry on fail.
         if (_versioned_ref.compare_exchange_strong(
                 vref, MakeVRef(id_ver + 1, NRefOfVRef(vref)),
                 butil::memory_order_release,
-                butil::memory_order_relaxed)) { // Ö»ÓĞÕâÀï³É¹¦ºó²Å½øĞĞÒ»ÏµÁĞµÄÊÍ·Å²Ù×÷
+                butil::memory_order_relaxed)) { // åªæœ‰è¿™é‡ŒæˆåŠŸåæ‰è¿›è¡Œä¸€ç³»åˆ—çš„é‡Šæ”¾æ“ä½œ
             // Update _error_text
             std::string error_text;
             if (error_fmt != NULL) {
@@ -1932,10 +1932,10 @@ AuthContext* Socket::mutable_auth_context() {
 int Socket::StartInputEvent(SocketId id, uint32_t events,
                             const bthread_attr_t& thread_attr) {
     SocketUniquePtr s;
-    if (Address(id, &s) < 0) {  // ¸ù¾İsocket id»ñÈ¡socketÖ¸Õë
+    if (Address(id, &s) < 0) {  // æ ¹æ®socket idè·å–socketæŒ‡é’ˆ
         return -1;
     }
-    if (NULL == s->_on_edge_triggered_events) { // »Øµ÷Îª¿ÕÔòÖ±½Ó·µ»Ø
+    if (NULL == s->_on_edge_triggered_events) { // å›è°ƒä¸ºç©ºåˆ™ç›´æ¥è¿”å›
         // Callback can be NULL when receiving error epoll events
         // (Added into epoll by `WaitConnected')
         return 0;
@@ -1955,8 +1955,8 @@ int Socket::StartInputEvent(SocketId id, uint32_t events,
     // Passing e[i].events causes complex visibility issues and
     // requires stronger memory fences, since reading the fd returns
     // error as well, we don't pass the events.
-    // socketÖĞµÄ_neventÎªÔ­×Ó±äÁ¿, ¼Ó1·µ»Ø0ËµÃ÷Ã»ÓĞÆäËûbthreadÔÚ´¦Àí´ËsocketÉÏµÄÊı¾İÁ÷,
-    // ÈôºóĞøÒÀÈ»ÓĞÊı¾İÁ÷µ½´ï, ´¦ÀíµÄbthread»áÒ»Ö±¶ÁÏÂÈ¥, ÓĞ¶¨Ê±Æ÷¼ì²é»á½«_nevent¹éÁã
+    // socketä¸­çš„_neventä¸ºåŸå­å˜é‡, åŠ 1è¿”å›0è¯´æ˜æ²¡æœ‰å…¶ä»–bthreadåœ¨å¤„ç†æ­¤socketä¸Šçš„æ•°æ®æµ,
+    // è‹¥åç»­ä¾ç„¶æœ‰æ•°æ®æµåˆ°è¾¾, å¤„ç†çš„bthreadä¼šä¸€ç›´è¯»ä¸‹å», æœ‰å®šæ—¶å™¨æ£€æŸ¥ä¼šå°†_neventå½’é›¶
     if (s->_nevent.fetch_add(1, butil::memory_order_acq_rel) == 0) {
         // According to the stats, above fetch_add is very effective. In a
         // server processing 1 million requests per second, this counter

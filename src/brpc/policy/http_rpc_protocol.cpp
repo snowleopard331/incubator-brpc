@@ -1215,7 +1215,7 @@ void ProcessHttpRequest(InputMessageBase *msg) {
     DestroyingPtr<HttpContext> imsg_guard(static_cast<HttpContext*>(msg));
     SocketUniquePtr socket_guard(imsg_guard->ReleaseSocket());
     Socket* socket = socket_guard.get();
-    // ÔÚBuildAcceptorÖĞ½«serverµÄthisÖ¸Õë¸³Öµ¸øhandlerµÄarg³ÉÔ±
+    // åœ¨BuildAcceptorä¸­å°†serverçš„thisæŒ‡é’ˆèµ‹å€¼ç»™handlerçš„argæˆå‘˜
     const Server* server = static_cast<const Server*>(msg->arg());
     ScopedNonServiceError non_service_error(server);
 
@@ -1397,7 +1397,7 @@ void ProcessHttpRequest(InputMessageBase *msg) {
         return;
     }
 
-    // ·şÎñÓë·½·¨
+    // æœåŠ¡ä¸æ–¹æ³•
     google::protobuf::Service* svc = sp->service;
     const google::protobuf::MethodDescriptor* method = sp->method;
     accessor.set_method(method);

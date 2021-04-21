@@ -90,32 +90,32 @@ template <typename T> struct ResourcePoolValidator {
 
 namespace butil {
 
-// »ñÈ¡¶ÔÏóµÄ½Ó¿Ú, ´Ëº¯Êı²»ÊÇÀàº¯Êı 
-// ·µ»Ø¶ÔÏóTµÄÖ¸Õë£¬²¢·µ»ØÎ¨Ò»±êÊ¶¸ÃT¶ÔÏóµÄid£ºResourceId<T>ÀàĞÍ£¨Õâ¸öÀàĞÍÀïÆäÊµ¾ÍÊÇÒ»¸öuint64_tµÄvalue£©
+// è·å–å¯¹è±¡çš„æ¥å£, æ­¤å‡½æ•°ä¸æ˜¯ç±»å‡½æ•° 
+// è¿”å›å¯¹è±¡Tçš„æŒ‡é’ˆï¼Œå¹¶è¿”å›å”¯ä¸€æ ‡è¯†è¯¥Tå¯¹è±¡çš„idï¼šResourceId<T>ç±»å‹ï¼ˆè¿™ä¸ªç±»å‹é‡Œå…¶å®å°±æ˜¯ä¸€ä¸ªuint64_tçš„valueï¼‰
 // Get an object typed |T| and write its identifier into |id|.
 // The object should be cleared before usage.
 // NOTE: T must be default-constructible.
 template <typename T> inline T* get_resource(ResourceId<T>* id) {
-    // ResourcePool::singleton ÊÇ»ñÈ¡¶ÔÓ¦ÀàĞÍ×ÊÔ´³ØµÄµ¥Àı
+    // ResourcePool::singleton æ˜¯è·å–å¯¹åº”ç±»å‹èµ„æºæ± çš„å•ä¾‹
     return ResourcePool<T>::singleton()->get_resource(id);
 }
 
-// T¶ÔÏóÊÇÍ¨¹ı T(arg1)¹¹ÔìµÄ
+// Tå¯¹è±¡æ˜¯é€šè¿‡ T(arg1)æ„é€ çš„
 // Get an object whose constructor is T(arg1)
 template <typename T, typename A1>
 inline T* get_resource(ResourceId<T>* id, const A1& arg1) {
     return ResourcePool<T>::singleton()->get_resource(id, arg1);
 }
 
-// T¶ÔÏóÊÇÍ¨¹ı T(arg1, arg2) ¹¹ÔìµÄ
+// Tå¯¹è±¡æ˜¯é€šè¿‡ T(arg1, arg2) æ„é€ çš„
 // Get an object whose constructor is T(arg1, arg2)
 template <typename T, typename A1, typename A2>
 inline T* get_resource(ResourceId<T>* id, const A1& arg1, const A2& arg2) {
     return ResourcePool<T>::singleton()->get_resource(id, arg1, arg2);
 }
-// ·µ»¹×ÊÔ´£¬ÕâÀï·µ»¹µÄÊÇid£¨get_resourceµÃµ½µÄ£©£¬¶ø²»ÊÇT¶ÔÏó»òÖ¸Õë¡£
-// ×¢Òâ£ºÓëfree/deleteÀàËÆ£¬idµÄÓĞĞ§ĞÔÊÇÃ»ÓĞ±»¼ì²éµÄ£¬Ê¹ÓÃÕß²»ÄÜ·µ»¹
-// Ò»¸ö»¹Î´ÉêÇë»òÕßÒÑ¾­·µ»¹µÄid£¬·ñÔòĞĞÎªÊÇÎ´¶¨ÒåµÄ
+// è¿”è¿˜èµ„æºï¼Œè¿™é‡Œè¿”è¿˜çš„æ˜¯idï¼ˆget_resourceå¾—åˆ°çš„ï¼‰ï¼Œè€Œä¸æ˜¯Tå¯¹è±¡æˆ–æŒ‡é’ˆã€‚
+// æ³¨æ„ï¼šä¸free/deleteç±»ä¼¼ï¼Œidçš„æœ‰æ•ˆæ€§æ˜¯æ²¡æœ‰è¢«æ£€æŸ¥çš„ï¼Œä½¿ç”¨è€…ä¸èƒ½è¿”è¿˜
+// ä¸€ä¸ªè¿˜æœªç”³è¯·æˆ–è€…å·²ç»è¿”è¿˜çš„idï¼Œå¦åˆ™è¡Œä¸ºæ˜¯æœªå®šä¹‰çš„
 // Return the object associated with identifier |id| back. The object is NOT
 // destructed and will be returned by later get_resource<T>. Similar with
 // free/delete, validity of the id is not checked, user shall not return a
@@ -125,8 +125,8 @@ template <typename T> inline int return_resource(ResourceId<T> id) {
     return ResourcePool<T>::singleton()->return_resource(id);
 }
 
-// ¸ù¾İidÕÒµ½²¢·µ»ØÊµ¼ÊµÄT¶ÔÏóÖ¸Õë£¬Èç¹ûid»¹Ã»ÓĞ±»·ÖÅä³ÉÒ»¸ö±äÁ¿Ôò»á·µ»ØNULL¡£
-// ¶ÔÒ»¸öÒÑ¾­·µ»¹µ½×ÊÔ´³ØµÄidÑ°Ö·²»»á·µ»ØNULL
+// æ ¹æ®idæ‰¾åˆ°å¹¶è¿”å›å®é™…çš„Tå¯¹è±¡æŒ‡é’ˆï¼Œå¦‚æœidè¿˜æ²¡æœ‰è¢«åˆ†é…æˆä¸€ä¸ªå˜é‡åˆ™ä¼šè¿”å›NULLã€‚
+// å¯¹ä¸€ä¸ªå·²ç»è¿”è¿˜åˆ°èµ„æºæ± çš„idå¯»å€ä¸ä¼šè¿”å›NULL
 // Get the object associated with the identifier |id|.
 // Returns NULL if |id| was not allocated by get_resource<T> or
 // ResourcePool<T>::get_resource() of a variant before.

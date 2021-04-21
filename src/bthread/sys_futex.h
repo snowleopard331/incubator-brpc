@@ -43,37 +43,37 @@ inline int futex_wait_private(
 
 inline int futex_wake_private(void* addr1, int nwake) {
     /*
-        ����֮����ͨ��syscall()���Σ�������ֱ�ӵ��õķ�ʽ����������������Ϊ
-        SYS_futexû�б�glibc export�ɿ⺯��������ͨ��ʹ�õ�fork()��open()��
-        write()�Ⱥ�����ȻҲ����Ϊϵͳ���ã�����ʵ��glibc��ϵͳ���ø�export
-        �����ķ�װ����
+        这里之所以通过syscall()传参，而不是直接调用的方式，来调用它。是因为
+        SYS_futex没有被glibc export成库函数。我们通常使用的fork()、open()、
+        write()等函数虽然也被称为系统调用，但其实是glibc把系统调用给export
+        出来的封装函数
 
-        ͨ��˵��futex������һ���û�̬���ں�̬��ϵ�ͬ�����ƣ����Լ�����Ϊ
-        ��һ��Ч�ʽϸߵ�ͬ�����ơ�pthread�ĺܶ�API������futexʵ��
+        通常说的futex，它是一种用户态和内核态混合的同步机制，可以简单理解为
+        是一种效率较高的同步机制。pthread的很多API大多基于futex实现
 
-        futexϵͳ���õ�API�������£�
+        futex系统调用的API声明如下：
         int futex(int *uaddr, int op, int val, const struct timespec *timeout,
                  int *uaddr2, int val3);
-        ����������
-            1. uaddrָ��ָ��һ�����ͣ��洢һ��������
-            2. op��ʾҪִ�еĲ������ͣ����绽��(FUTEX_WAKE)���ȴ�(FUTEX_WAIT)
-            3. val��ʾһ��ֵ��ע�⣺���ڲ�ͬ��op���ͣ�val���岻ͬ��
-                1) ���ڵȴ����������uaddr�洢��������val��ͬ��������ߵȴ���
-                    �ȴ�ʱ�����timeout������
-                2) ���ڻ��Ѳ�����val��ʾ����໽��val �������ȴ�uaddr�ϵġ������ߡ�
-                    ��֮ǰ��ͬһ��uaddr���ù�FUTEX_WAIT�����ҳ�֮Ϊ�����ߣ���ʵ��
-                    brpc�ﾳ�У�����������worker����
-            4. timeout��ʾ��ʱʱ�䣬����op����Ϊ�ȴ�ʱ���á��������ߵȴ����ʱ�䡣��
-            5. uaddr2��val3���Ժ��ԡ�
-        ����ֵ������
-            1. ���ڵȴ��������ɹ�����0��ʧ�ܷ���-1
-            2. ���ڻ��Ѳ������ɹ����ػ��ѵ�֮ǰ������futex�ϵġ������ߡ�������ʧ�ܷ���-1
+        参数解析：
+            1. uaddr指针指向一个整型，存储一个整数。
+            2. op表示要执行的操作类型，比如唤醒(FUTEX_WAKE)、等待(FUTEX_WAIT)
+            3. val表示一个值，注意：对于不同的op类型，val语义不同。
+                1) 对于等待操作：如果uaddr存储的整型与val相同则继续休眠等待。
+                    等待时间就是timeout参数。
+                2) 对于唤醒操作：val表示，最多唤醒val 个阻塞等待uaddr上的“消费者”
+                    （之前对同一个uaddr调用过FUTEX_WAIT，姑且称之为消费者，其实在
+                    brpc语境中，就是阻塞的worker）。
+            4. timeout表示超时时间，仅对op类型为等待时有用。就是休眠等待的最长时间。在
+            5. uaddr2和val3可以忽略。
+        返回值解析：
+            1. 对于等待操作：成功返回0，失败返回-1
+            2. 对于唤醒操作：成功返回唤醒的之前阻塞在futex上的“消费者”个数。失败返回-1
 
-        ����futex_wake_private()�����syscall()�ȼ��ڣ�
+        所以futex_wake_private()里面的syscall()等价于：
         futex(&_pending_signal, (FUTEX_WAKE|FUTEX_PRIVATE_FLAG), num_task, NULL, NULL, 0);
-        FUTEX_WAKE�ǻ��Ѳ�����FUTEX_PRIVATE_FLAG��һ����ǣ���ʾ�����������̹�����
-        ���Լ��ٿ����������ǻ��Ѳ�������brpc�ﾳ�£��䷵��ֵ����������worker������
-        ���ķ���ֵ��һ·͸����futex_wake_private()�Լ�PL��signal()����
+        FUTEX_WAKE是唤醒操作，FUTEX_PRIVATE_FLAG是一个标记，表示不和其他进程共享，
+        可以减少开销。由于是唤醒操作，在brpc语境下，其返回值就是阻塞的worker个数。
+        它的返回值会一路透传给futex_wake_private()以及PL的signal()函数
     */
     return syscall(SYS_futex, addr1, (FUTEX_WAKE | FUTEX_PRIVATE_FLAG),
                    nwake, NULL, NULL, 0);

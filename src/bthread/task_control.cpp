@@ -57,17 +57,17 @@ void run_worker_startfn() {
 
 void* TaskControl::worker_thread(void* arg) {
     /*
-        1. TG´´½¨Ç°µÄ´¦Àí, ÀïÃæÒ²ÊÇ»Øµ÷ g_worker_startfn º¯ÊıÀ´Ö´ĞĞ²Ù×÷,
-            ¿ÉÒÔÍ¨¹ı bthread_set_worker_startfn() À´ÉèÖÃÕâ¸ö»Øµ÷, Êµ¼ÊºÜÉÙÓÃµ½Õâ¸ö¹¦ÄÜ
+        1. TGåˆ›å»ºå‰çš„å¤„ç†, é‡Œé¢ä¹Ÿæ˜¯å›è°ƒ g_worker_startfn å‡½æ•°æ¥æ‰§è¡Œæ“ä½œ,
+            å¯ä»¥é€šè¿‡ bthread_set_worker_startfn() æ¥è®¾ç½®è¿™ä¸ªå›è°ƒ, å®é™…å¾ˆå°‘ç”¨åˆ°è¿™ä¸ªåŠŸèƒ½
     */
     run_worker_startfn();    
 #ifdef BAIDU_INTERNAL
     logging::ComlogInitializer comlog_initializer;
 #endif
     
-    // 2. »ñÈ¡TCµÄÖ¸Õë
+    // 2. è·å–TCçš„æŒ‡é’ˆ
     TaskControl* c = static_cast<TaskControl*>(arg);
-    // 2.1 ´´½¨Ò»¸öTG
+    // 2.1 åˆ›å»ºä¸€ä¸ªTG
     TaskGroup* g = c->create_group();
     TaskStatistics stat;
     if (NULL == g) {
@@ -77,20 +77,20 @@ void* TaskControl::worker_thread(void* arg) {
     BT_VLOG << "Created worker=" << pthread_self()
             << " bthread=" << g->main_tid();
 
-    // 3.1 °Ñthread localµÄtls_task_groupÓÃ¸Õ´´½¨µÄTGÀ´³õÊ¼»¯
-    tls_task_group = g; // Ö»ÓĞworkerÏß³ÌµÄtls_task_groupÎª·Çnull
-    // 3.2 worker¼ÆÊı¼Ó1£¨_nworkersÊÇbvar::Adder<int64_t>ÀàĞÍ)
+    // 3.1 æŠŠthread localçš„tls_task_groupç”¨åˆšåˆ›å»ºçš„TGæ¥åˆå§‹åŒ–
+    tls_task_group = g; // åªæœ‰workerçº¿ç¨‹çš„tls_task_groupä¸ºénull
+    // 3.2 workerè®¡æ•°åŠ 1ï¼ˆ_nworkersæ˜¯bvar::Adder<int64_t>ç±»å‹)
     c->_nworkers << 1;
 
-    // 4. TGÔËĞĞÖ÷ÈÎÎñ(ËÀÑ­»·)
+    // 4. TGè¿è¡Œä¸»ä»»åŠ¡(æ­»å¾ªç¯)
     g->run_main_task();
 
-    // 5. TG½áÊøÊ±·µ»Ø×´Ì¬ĞÅÏ¢
+    // 5. TGç»“æŸæ—¶è¿”å›çŠ¶æ€ä¿¡æ¯
     stat = g->main_stat();
     BT_VLOG << "Destroying worker=" << pthread_self() << " bthread="
             << g->main_tid() << " idle=" << stat.cputime_ns / 1000000.0
             << "ms uptime=" << g->current_uptime_ns() / 1000000.0 << "ms";
-    // 6. ¸÷ÖÖÇåÀí²Ù×÷
+    // 6. å„ç§æ¸…ç†æ“ä½œ
     tls_task_group = NULL;
     g->destroy_self();
     c->_nworkers << -1;
@@ -172,10 +172,10 @@ int TaskControl::init(int concurrency) {
         return -1;
     }
     
-    // ´´½¨pthreadÏß³Ì
+    // åˆ›å»ºpthreadçº¿ç¨‹
     _workers.resize(_concurrency);   
     for (int i = 0; i < _concurrency; ++i) {
-        // ÎªÃ¿¸öworkerÖ´ĞĞworker_threadº¯Êı
+        // ä¸ºæ¯ä¸ªworkeræ‰§è¡Œworker_threadå‡½æ•°
         const int rc = pthread_create(&_workers[i], NULL, worker_thread, this);
         if (rc) {
             LOG(ERROR) << "Fail to create _workers[" << i << "], " << berror(rc);
@@ -358,16 +358,16 @@ bool TaskControl::steal_task(bthread_t* tid, size_t* seed, size_t offset) {
     bool stolen = false;
     size_t s = *seed;
     for (size_t i = 0; i < ngroup; ++i, s += offset) {
-        // Ëæ»úÕÒÒ»¸öTG
+        // éšæœºæ‰¾ä¸€ä¸ªTG
         TaskGroup* g = _groups[s % ngroup];
         // g is possibly NULL because of concurrent _destroy_group
         if (g) {
-            // ÏÈÇÔÈ¡_rqÖĞµÄÈÎÎñ
+            // å…ˆçªƒå–_rqä¸­çš„ä»»åŠ¡
             if (g->_rq.steal(tid)) {
                 stolen = true;
                 break;
             }
-            // ÉÏÃæÊ§°ÜÔòÇÔÈ¡_remote_rqÖĞµÄÈÎÎñ
+            // ä¸Šé¢å¤±è´¥åˆ™çªƒå–_remote_rqä¸­çš„ä»»åŠ¡
             if (g->_remote_rq.pop(tid)) {
                 stolen = true;
                 break;
@@ -383,13 +383,13 @@ void TaskControl::signal_task(int num_task) {
         return;
     }
     /*
-        num_task²»³¬¹ı2£¬ÊÇÔÚĞÔÄÜºÍµ÷¶ÈÊ±¼äÖ±½ÓµÄÒ»ÖÖÆ½ºâ(×÷ÕßËµÃ÷)
-        Õâ¾ä»°ÈçºÎÀí½âÄØ£¿ÆäÊµÊÇÕâÑù£¬Èç¹ûTCµÄsignal_task()Í¨ÖªµÄÈÎÎñ¸öÊı¶à£¬
-        ÄÇÃ´¶ÓÁĞ±»Ïû·ÑµÄÒ²¾ÍÔ½¿ì¡£Ïû·ÑµÄ¿ì±¾À´ÊÇºÃÊÂ£¬µ«ÊÇÒ²ÓĞ¸öÎÊÌâ¾ÍÊÇÎÒÃÇ
-        ÏÖÔÚÖ®ËùÒÔ×ßµ½signal_task()ÊÇÒòÎªÎÒÃÇÔÚ¡°Éú²ú¡±bthreadÈÎÎñ£¬Ò²¾ÍÊÇËµ
-        ÔÚÖ´ĞĞbthread_start_background()£¨»òÆäËûº¯Êı£©´´½¨ĞÂÈÎÎñ¡£Õâ¸öº¯Êıµ÷ÓÃ
-        ÊÇ×èÈûµÄ£¬Èç¹ûsignal_task()Í¨ÖªµÄÈÎÎñ¸öÊıÌ«¶à£¬Ôò»áµ¼ÖÂ
-        bthread_start_background()×èÈûµÄÊ±¼äÀ­³¤¡£ËùÒÔÕâÀïËµÊÇÕÒµ½Ò»ÖÖÆ½ºâ
+        num_taskä¸è¶…è¿‡2ï¼Œæ˜¯åœ¨æ€§èƒ½å’Œè°ƒåº¦æ—¶é—´ç›´æ¥çš„ä¸€ç§å¹³è¡¡(ä½œè€…è¯´æ˜)
+        è¿™å¥è¯å¦‚ä½•ç†è§£å‘¢ï¼Ÿå…¶å®æ˜¯è¿™æ ·ï¼Œå¦‚æœTCçš„signal_task()é€šçŸ¥çš„ä»»åŠ¡ä¸ªæ•°å¤šï¼Œ
+        é‚£ä¹ˆé˜Ÿåˆ—è¢«æ¶ˆè´¹çš„ä¹Ÿå°±è¶Šå¿«ã€‚æ¶ˆè´¹çš„å¿«æœ¬æ¥æ˜¯å¥½äº‹ï¼Œä½†æ˜¯ä¹Ÿæœ‰ä¸ªé—®é¢˜å°±æ˜¯æˆ‘ä»¬
+        ç°åœ¨ä¹‹æ‰€ä»¥èµ°åˆ°signal_task()æ˜¯å› ä¸ºæˆ‘ä»¬åœ¨â€œç”Ÿäº§â€bthreadä»»åŠ¡ï¼Œä¹Ÿå°±æ˜¯è¯´
+        åœ¨æ‰§è¡Œbthread_start_background()ï¼ˆæˆ–å…¶ä»–å‡½æ•°ï¼‰åˆ›å»ºæ–°ä»»åŠ¡ã€‚è¿™ä¸ªå‡½æ•°è°ƒç”¨
+        æ˜¯é˜»å¡çš„ï¼Œå¦‚æœsignal_task()é€šçŸ¥çš„ä»»åŠ¡ä¸ªæ•°å¤ªå¤šï¼Œåˆ™ä¼šå¯¼è‡´
+        bthread_start_background()é˜»å¡çš„æ—¶é—´æ‹‰é•¿ã€‚æ‰€ä»¥è¿™é‡Œè¯´æ˜¯æ‰¾åˆ°ä¸€ç§å¹³è¡¡
     */ 
     // TODO(gejun): Current algorithm does not guarantee enough threads will
     // be created to match caller's requests. But in another side, there's also
@@ -398,9 +398,9 @@ void TaskControl::signal_task(int num_task) {
     if (num_task > 2) {
         num_task = 2;
     }
-    // ÕÒµ½µ±Ç°TG(worker)Ëù¹éÊôµÄPL
+    // æ‰¾åˆ°å½“å‰TG(worker)æ‰€å½’å±çš„PL
     int start_index = butil::fmix64(pthread_numeric_id()) % PARKING_LOT_NUM;
-    // num_task¼õÈ¥»½ĞÑµÄ¸öÊı¾ÍÊÇĞèÒª»½ĞÑ£¬µ«Î´»½ĞÑµÄÈÎÎñ¸öÊı
+    // num_taskå‡å»å”¤é†’çš„ä¸ªæ•°å°±æ˜¯éœ€è¦å”¤é†’ï¼Œä½†æœªå”¤é†’çš„ä»»åŠ¡ä¸ªæ•°
     num_task -= _pl[start_index].signal(1);
     if (num_task > 0) {
         for (int i = 1; i < PARKING_LOT_NUM && num_task > 0; ++i) {
@@ -410,14 +410,14 @@ void TaskControl::signal_task(int num_task) {
             num_task -= _pl[start_index].signal(1);
         }
     }
-    if (num_task > 0 && // ´ËÊ±ÈÎÎñ»¹ÓĞÊ£ÓàËµÃ÷Ïû·ÑÕß²»¹»ÓÃ
+    if (num_task > 0 && // æ­¤æ—¶ä»»åŠ¡è¿˜æœ‰å‰©ä½™è¯´æ˜æ¶ˆè´¹è€…ä¸å¤Ÿç”¨
         FLAGS_bthread_min_concurrency > 0 &&    // test min_concurrency for performance
         _concurrency.load(butil::memory_order_relaxed) < FLAGS_bthread_concurrency) {
         // TODO: Reduce this lock
         BAIDU_SCOPED_LOCK(g_task_control_mutex);
-        // È«¾ÖTCµÄ²¢·¢¶È(_concurrency)Ğ¡ÓÚgflagÖĞÅäÖÃµÄFLAGS_bthread_concurrency
+        // å…¨å±€TCçš„å¹¶å‘åº¦(_concurrency)å°äºgflagä¸­é…ç½®çš„FLAGS_bthread_concurrency
         if (_concurrency.load(butil::memory_order_acquire) < FLAGS_bthread_concurrency) {
-            // Ôö¼ÓworkerµÄÊıÁ¿
+            // å¢åŠ workerçš„æ•°é‡
             add_workers(1);
         }
     }

@@ -71,26 +71,26 @@ inline TaskControl* get_task_control() {
 }
 
 inline TaskControl* get_or_new_task_control() {
-    // 1. Ê¹ÓÃÈ«¾Ö±äÁ¿tc³õÊ¼»¯Ô­×Ó±äÁ¿
+    // 1. ä½¿ç”¨å…¨å±€å˜é‡tcåˆå§‹åŒ–åŸå­å˜é‡
     butil::atomic<TaskControl*>* p = (butil::atomic<TaskControl*>*)&g_task_control;
-    // 1.1 Í¨¹ıÔ­×Ó±äÁ¿½øĞĞload, È¡³ötcÖ¸Õë, Èç¹û²»Îª¿ÕÔòÖ±½Ó·µ»Ø
+    // 1.1 é€šè¿‡åŸå­å˜é‡è¿›è¡Œload, å–å‡ºtcæŒ‡é’ˆ, å¦‚æœä¸ä¸ºç©ºåˆ™ç›´æ¥è¿”å›
     TaskControl* c = p->load(butil::memory_order_consume);
     if (c != NULL) {
         return c;
     }
-    // 1.2 ¾ºÕù¼Ó×ÔĞıËø, ÖØ¸´ÉÏÒ»²Ù×÷
+    // 1.2 ç«äº‰åŠ è‡ªæ—‹é”, é‡å¤ä¸Šä¸€æ“ä½œ
     BAIDU_SCOPED_LOCK(g_task_control_mutex);
     c = p->load(butil::memory_order_consume);
     if (c != NULL) {
         return c;
     }
 
-    // 2. µ½ÕâÀïËµÃ÷tcÈ·ÊµÎªNULL, newÒ»¸ö
+    // 2. åˆ°è¿™é‡Œè¯´æ˜tcç¡®å®ä¸ºNULL, newä¸€ä¸ª
     c = new (std::nothrow) TaskControl;
     if (NULL == c) {
         return NULL;
     }
-    // 3. Ê¹ÓÃ²¢·¢¶ÈconcurrencyÀ´³õÊ¼»¯È«¾Ötc
+    // 3. ä½¿ç”¨å¹¶å‘åº¦concurrencyæ¥åˆå§‹åŒ–å…¨å±€tc
     int concurrency = FLAGS_bthread_min_concurrency > 0 ?
         FLAGS_bthread_min_concurrency :
         FLAGS_bthread_concurrency;
@@ -99,7 +99,7 @@ inline TaskControl* get_or_new_task_control() {
         delete c;
         return NULL;
     }
-    // 4. ½«È«¾Ötc´æÈëÔ­×Ó±äÁ¿ÖĞ
+    // 4. å°†å…¨å±€tcå­˜å…¥åŸå­å˜é‡ä¸­
     p->store(c, butil::memory_order_release);
     return c;
 }
@@ -132,13 +132,13 @@ start_from_non_worker(bthread_t* __restrict tid,
                       const bthread_attr_t* __restrict attr,
                       void * (*fn)(void*),
                       void* __restrict arg) {
-    // »ñÈ¡µ¥ÀıTaskControl
+    // è·å–å•ä¾‹TaskControl
     TaskControl* c = get_or_new_task_control(); 
     if (NULL == c) {
         return ENOMEM;
     }
 
-    // Ñ¡ÔñÒ»¸öTaskGroupÈ»ºóµ÷ÓÃstart_background<true>
+    // é€‰æ‹©ä¸€ä¸ªTaskGroupç„¶åè°ƒç”¨start_background<true>
     if (attr != NULL && (attr->flags & BTHREAD_NOSIGNAL)) {
         // Remember the TaskGroup to insert NOSIGNAL tasks for 2 reasons:
         // 1. NOSIGNAL is often for creating many bthreads in batch,
@@ -195,17 +195,17 @@ int bthread_start_background(bthread_t* __restrict tid,
                              const bthread_attr_t* __restrict attr,
                              void * (*fn)(void*),
                              void* __restrict arg) {
-    // Èç¹ûÄÜ»ñÈ¡µ½thead localµÄworker(TaskGroup), ÄÇÃ´Ö±½ÓÓÃÕâ¸öworkerÀ´ÔËĞĞÈÎÎñ
+    // å¦‚æœèƒ½è·å–åˆ°thead localçš„worker(TaskGroup), é‚£ä¹ˆç›´æ¥ç”¨è¿™ä¸ªworkeræ¥è¿è¡Œä»»åŠ¡
     bthread::TaskGroup* g = bthread::tls_task_group;
     if (g) {
         // start from worker
         /*
-            ÔÚĞÂ½¨taskmetaºó»áµ÷ÓÃready_to_run£¬´ËÊ±»á½«¸Ãbthread pushµ½rqÖĞ£¬
-            ¶ø²»ÊÇÖ±½ÓÇĞ»»ÔËĞĞ£¬¼´¡±µÍÓÅÏÈ¼¶¡±
+            åœ¨æ–°å»ºtaskmetaåä¼šè°ƒç”¨ready_to_runï¼Œæ­¤æ—¶ä¼šå°†è¯¥bthread pushåˆ°rqä¸­ï¼Œ
+            è€Œä¸æ˜¯ç›´æ¥åˆ‡æ¢è¿è¡Œï¼Œå³â€ä½ä¼˜å…ˆçº§â€
         */
         return g->start_background<false>(tid, attr, fn, arg);
     }
-    // Èç¹û»ñÈ¡²»µ½TGÔòËµÃ÷µ±Ç°»¹Ã»ÓĞbthreadµÄÉÏÏÂÎÄ(TC/TG¶¼Ã»ÓĞ), ËùÒÔµ÷ÓÃ´Ëº¯Êı´Ó¶ø´´½¨TC
+    // å¦‚æœè·å–ä¸åˆ°TGåˆ™è¯´æ˜å½“å‰è¿˜æ²¡æœ‰bthreadçš„ä¸Šä¸‹æ–‡(TC/TGéƒ½æ²¡æœ‰), æ‰€ä»¥è°ƒç”¨æ­¤å‡½æ•°ä»è€Œåˆ›å»ºTC
     return bthread::start_from_non_worker(tid, attr, fn, arg);
 }
 

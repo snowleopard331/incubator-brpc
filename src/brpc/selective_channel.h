@@ -50,9 +50,9 @@ namespace brpc {
 // calls with SelectiveChannel, make sure that `request' is owned and deleted
 // in `done'.
 
-// SelectiveChannel (ÓĞÊ±±»³ÆÎª¡°schan¡±)°´¸ºÔØ¾ùºâËã·¨·ÃÎÊÆä°üº¬µÄChannel£¬
-// Ïà±ÈÆÕÍ¨ChannelËü¸ü¼Ó¸ß²ã£º°ÑÁ÷Á¿·Ö¸øsub channel£¬¶ø²»ÊÇ¾ßÌåµÄServer¡£
-// SelectiveChannelÖ÷ÒªÓÃÀ´Ö§³Ö»úÆ÷×éÖ®¼äµÄ¸ºÔØ¾ùºâ
+// SelectiveChannel (æœ‰æ—¶è¢«ç§°ä¸ºâ€œschanâ€)æŒ‰è´Ÿè½½å‡è¡¡ç®—æ³•è®¿é—®å…¶åŒ…å«çš„Channelï¼Œ
+// ç›¸æ¯”æ™®é€šChannelå®ƒæ›´åŠ é«˜å±‚ï¼šæŠŠæµé‡åˆ†ç»™sub channelï¼Œè€Œä¸æ˜¯å…·ä½“çš„Serverã€‚
+// SelectiveChannelä¸»è¦ç”¨æ¥æ”¯æŒæœºå™¨ç»„ä¹‹é—´çš„è´Ÿè½½å‡è¡¡
 
 class SelectiveChannel : public ChannelBase/*non-copyable*/ {
 public:

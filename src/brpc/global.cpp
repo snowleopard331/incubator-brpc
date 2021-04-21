@@ -382,7 +382,7 @@ static void GlobalInitializeOrDieImpl() {
         exit(1);
     }
 
-    // ×¢²á¸÷ÖÖĞ­ÒéµÄÖ§³Ö
+    // æ³¨å†Œå„ç§åè®®çš„æ”¯æŒ
     // Protocols
     Protocol baidu_protocol = { ParseRpcMessage,
                                 SerializeRequestDefault, PackRpcRequest,

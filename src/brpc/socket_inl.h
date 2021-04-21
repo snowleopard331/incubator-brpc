@@ -85,9 +85,9 @@ inline int Socket::Dereference() {
         // before rather than `SetFailed'; `ver == ide_ver+1' means we
         // had `SetFailed' this socket before. We should destroy the
         // socket under both situation
-        // ver == id_ver || ver == id_ver + 1Õâ¸öÅĞ¶ÏÌõ¼şver == id_ver±íÊ¾µ±Ç°°æ±¾Ã»ÓĞ±ä»¯£¬
-        // ÒâÎ¶×ÅÃ»ÓĞ±»setfailed£¬ÊôÓÚÓÃÍêÁËÃ»ÆäËûÈËÓÃÁË¾Í»ØÊÕµÄÇé¿ö£¬ver == id_ver + 1
-        // ÔòÊÇËµÃ÷ÏÈÇ°±»setfailedÁË£¬ÎŞÂÛÄÄÖÖÇé¿ö¶¼ĞèÒªÏú»ÙÕâ¸ösocket²¢·µ»Ø¸øresource pool
+        // ver == id_ver || ver == id_ver + 1è¿™ä¸ªåˆ¤æ–­æ¡ä»¶ver == id_verè¡¨ç¤ºå½“å‰ç‰ˆæœ¬æ²¡æœ‰å˜åŒ–ï¼Œ
+        // æ„å‘³ç€æ²¡æœ‰è¢«setfailedï¼Œå±äºç”¨å®Œäº†æ²¡å…¶ä»–äººç”¨äº†å°±å›æ”¶çš„æƒ…å†µï¼Œver == id_ver + 1
+        // åˆ™æ˜¯è¯´æ˜å…ˆå‰è¢«setfailedäº†ï¼Œæ— è®ºå“ªç§æƒ…å†µéƒ½éœ€è¦é”€æ¯è¿™ä¸ªsocketå¹¶è¿”å›ç»™resource pool
         if (__builtin_expect(ver == id_ver || ver == id_ver + 1, 1)) {
             // sees nref:1->0, try to set version=id_ver+2,--nref.
             // No retry: if version changes, the slot is already returned by
@@ -124,11 +124,11 @@ inline int Socket::Dereference() {
     return -1;
 }
 
-// ´«ÈëÒ»¸ösocket id£¬²¢°ÑptrÖ¸Ïò¸ù¾İidÕÒµ½µÄsocket
+// ä¼ å…¥ä¸€ä¸ªsocket idï¼Œå¹¶æŠŠptræŒ‡å‘æ ¹æ®idæ‰¾åˆ°çš„socket
 inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
     const butil::ResourceId<Socket> slot = SlotOfSocketId(id);
-    Socket* const m = address_resource(slot);   // ¸ù¾İidÖĞµÄµÍ32bit´Ó×ÊÔ´³ØÖĞÕÒµ½socket¶ÔÏó
-    // __builtin_expectÊÇgccÖ¸Áî£¬ºÍÆÕÍ¨µÄÌõ¼şÓï¾äµÄÇø±ğÔÚÓÚ¶îÍâ¸æËß±àÒëÆ÷m!=NULL´ó¸ÅÂÊÎªÕæ£¬ÓÃÓÚ×öÖ¸ÁîÌø×ªµÄÓÅ»¯
+    Socket* const m = address_resource(slot);   // æ ¹æ®idä¸­çš„ä½32bitä»èµ„æºæ± ä¸­æ‰¾åˆ°socketå¯¹è±¡
+    // __builtin_expectæ˜¯gccæŒ‡ä»¤ï¼Œå’Œæ™®é€šçš„æ¡ä»¶è¯­å¥çš„åŒºåˆ«åœ¨äºé¢å¤–å‘Šè¯‰ç¼–è¯‘å™¨m!=NULLå¤§æ¦‚ç‡ä¸ºçœŸï¼Œç”¨äºåšæŒ‡ä»¤è·³è½¬çš„ä¼˜åŒ–
     if (__builtin_expect(m != NULL, 1)) {
         // acquire fence makes sure this thread sees latest changes before
         // Dereference() or Revive().
@@ -140,19 +140,19 @@ inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
             return 0;
         }
 
-        // Èç¹ûsocketIdµÄ°æ±¾ºÍsocketÊµ¼ÊµÄ°æ±¾²»Æ¥Åä£¬ËµÃ÷ÓĞ²Ù×÷ÈÃsocketÊ§Ğ§ÁË£¬ºóĞø³¢ÊÔ½øĞĞ»ØÊÕ²Ù×÷£¬ÏÈÓÃfetch_sub¼õµôÏÈ¼ÓµÄ1
+        // å¦‚æœsocketIdçš„ç‰ˆæœ¬å’Œsocketå®é™…çš„ç‰ˆæœ¬ä¸åŒ¹é…ï¼Œè¯´æ˜æœ‰æ“ä½œè®©socketå¤±æ•ˆäº†ï¼Œåç»­å°è¯•è¿›è¡Œå›æ”¶æ“ä½œï¼Œå…ˆç”¨fetch_subå‡æ‰å…ˆåŠ çš„1
         const uint64_t vref2 = m->_versioned_ref.fetch_sub(
             1, butil::memory_order_release);
         const int32_t nref = NRefOfVRef(vref2);
-        if (nref > 1) { // Èç¹û´óÓÚ1£¬ËµÃ÷»¹ÓĞÆäËûÈËÔÚÓÃ
+        if (nref > 1) { // å¦‚æœå¤§äº1ï¼Œè¯´æ˜è¿˜æœ‰å…¶ä»–äººåœ¨ç”¨
             return -1;
-        } else if (__builtin_expect(nref == 1, 1)) {    // ³¢ÊÔ¹é»¹µ½resource pool
+        } else if (__builtin_expect(nref == 1, 1)) {    // å°è¯•å½’è¿˜åˆ°resource pool
             const uint32_t ver2 = VersionOfVRef(vref2);
-            if ((ver2 & 1)) {   // ÅĞ¶Ïµ±Ç°°æ±¾µÄÆæÅ¼, ÆæÊıËµÃ÷±»¼Ó¹ıÒ»´Î1
-                // Ò»Ö±ÊÇÆæÊıÃ»±äºÍÔ­À´ÊÇÅ¼Êı½ö½ö¼ÓÁËÒ»¸ö1µÄÇé¿ö£¬Õâ¸öÌõ¼ş¿ÉÒÔ±£Ö¤
-                // Õû¸ö¹ı³ÌÈÔÈ»ÊÇsocketIdÖ¸´úµÄÄÇ¸ösocket£¬À´×Ôresource poolµÄsocket
-                // ÊÇ»á±»ÖØÓÃ£¬verÊÇ»á²»¶ÏÀÛ¼ÓµÄ
-                // ÕâÀïÖ®ËùÒÔÂß¼­ÕâÃ´¸´ÔÓÊÇÎªÁËÊµÏÖaddressµÄwait-free
+            if ((ver2 & 1)) {   // åˆ¤æ–­å½“å‰ç‰ˆæœ¬çš„å¥‡å¶, å¥‡æ•°è¯´æ˜è¢«åŠ è¿‡ä¸€æ¬¡1
+                // ä¸€ç›´æ˜¯å¥‡æ•°æ²¡å˜å’ŒåŸæ¥æ˜¯å¶æ•°ä»…ä»…åŠ äº†ä¸€ä¸ª1çš„æƒ…å†µï¼Œè¿™ä¸ªæ¡ä»¶å¯ä»¥ä¿è¯
+                // æ•´ä¸ªè¿‡ç¨‹ä»ç„¶æ˜¯socketIdæŒ‡ä»£çš„é‚£ä¸ªsocketï¼Œæ¥è‡ªresource poolçš„socket
+                // æ˜¯ä¼šè¢«é‡ç”¨ï¼Œveræ˜¯ä¼šä¸æ–­ç´¯åŠ çš„
+                // è¿™é‡Œä¹‹æ‰€ä»¥é€»è¾‘è¿™ä¹ˆå¤æ‚æ˜¯ä¸ºäº†å®ç°addressçš„wait-free
                 if (ver1 == ver2 || ver1 + 1 == ver2) {
                     uint64_t expected_vref = vref2 - 1;
                     if (m->_versioned_ref.compare_exchange_strong(
@@ -166,7 +166,7 @@ inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
                     CHECK(false) << "ref-version=" << ver1
                                  << " unref-version=" << ver2;
                 }
-            } else {    // °æ±¾Å¼Êı, ËµÃ÷ÒÑ¾­±»ÆäËûµØ·½Ïú»Ù¹é»¹ÁË
+            } else {    // ç‰ˆæœ¬å¶æ•°, è¯´æ˜å·²ç»è¢«å…¶ä»–åœ°æ–¹é”€æ¯å½’è¿˜äº†
                 CHECK_EQ(ver1, ver2);
                 // Addressed a free slot.
             }

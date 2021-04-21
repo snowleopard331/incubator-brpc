@@ -54,18 +54,18 @@ static bvar::PassiveStatus<int64_t> bvar_stack_count(
     "bthread_stack_count", get_stack_count, NULL);
 
 int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) {
-    const static int PAGESIZE = getpagesize();  // ¿âº¯Êı, »ñÈ¡ÏµÍ³·ÖÒ³µÄ´óĞ¡(×Ö½Ú)
+    const static int PAGESIZE = getpagesize();  // åº“å‡½æ•°, è·å–ç³»ç»Ÿåˆ†é¡µçš„å¤§å°(å­—èŠ‚)
     const int PAGESIZE_M1 = PAGESIZE - 1;
     const int MIN_STACKSIZE = PAGESIZE * 2;
     const int MIN_GUARDSIZE = PAGESIZE;
 
-    // ÄÚ´æ¶ÔÆë(Ò³´óĞ¡µÄÕûÊı±¶)
+    // å†…å­˜å¯¹é½(é¡µå¤§å°çš„æ•´æ•°å€)
     // Align stacksize
     const int stacksize =
         (std::max(stacksize_in, MIN_STACKSIZE) + PAGESIZE_M1) &
         ~PAGESIZE_M1;
 
-    // ´«Èëguardsize_inÄ¬ÈÏ4096, Ò»°ã²»»áĞŞ¸Ä
+    // ä¼ å…¥guardsize_iné»˜è®¤4096, ä¸€èˆ¬ä¸ä¼šä¿®æ”¹
     if (guardsize_in <= 0) {
         void* mem = malloc(stacksize);
         if (NULL == mem) {
@@ -85,13 +85,13 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
         }
         return 0;
     } else {
-        // ÄÚ´æ¶ÔÆë
+        // å†…å­˜å¯¹é½
         // Align guardsize
         const int guardsize =
             (std::max(guardsize_in, MIN_GUARDSIZE) + PAGESIZE_M1) &
             ~PAGESIZE_M1;
 
-        // ÓÃmmap·ÖÅäÒ»¿éÄÚ´æ, ´óĞ¡ÊÇstacksizeÓëguardsizeÖ®ºÍ
+        // ç”¨mmapåˆ†é…ä¸€å—å†…å­˜, å¤§å°æ˜¯stacksizeä¸guardsizeä¹‹å’Œ
         const int memsize = stacksize + guardsize;
         void* const mem = mmap(NULL, memsize, (PROT_READ | PROT_WRITE),
                                (MAP_PRIVATE | MAP_ANONYMOUS), -1, 0);
@@ -105,15 +105,15 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
             return -1;
         }
 
-        // ÅĞ¶ÏÒ»ÏÂmmap·µ»ØµÄÄÚ´æµØÖ·ÊÇ²»ÊÇ°´ÕÕÒ³´óĞ¡¶ÔÆëµÄ¡£Èç¹û²»ÊÇ¾Í´òÒ»ĞĞERRORÈÕÖ¾¡£
+        // åˆ¤æ–­ä¸€ä¸‹mmapè¿”å›çš„å†…å­˜åœ°å€æ˜¯ä¸æ˜¯æŒ‰ç…§é¡µå¤§å°å¯¹é½çš„ã€‚å¦‚æœä¸æ˜¯å°±æ‰“ä¸€è¡ŒERRORæ—¥å¿—ã€‚
         void* aligned_mem = (void*)(((intptr_t)mem + PAGESIZE_M1) & ~PAGESIZE_M1);
         if (aligned_mem != mem) {
             LOG_ONCE(ERROR) << "addr=" << mem << " returned by mmap is not "
                 "aligned by pagesize=" << PAGESIZE;
         }
-        // ¼ÆËãoffset, µ±²»¶ÔÆëµÄÊ±ºòoffset´óÓÚ0. Èç¹ûoffset´óÓÚ±£»¤Ò³µÄ´óĞ¡, Ö±½Ó·µ»Ø-1
-        // Èç¹ûoffsetĞ¡ÓÚ±£»¤Ò³µÄ´óĞ¡, ¾Íµ÷ÓÃmprotect()°Ñ¶àÓàµÄ×Ö½Ú£¨guardsize - offset£©
-        // ÉèÖÃ³É²»¿É·ÃÎÊ£¨PROT_NONE£©
+        // è®¡ç®—offset, å½“ä¸å¯¹é½çš„æ—¶å€™offsetå¤§äº0. å¦‚æœoffsetå¤§äºä¿æŠ¤é¡µçš„å¤§å°, ç›´æ¥è¿”å›-1
+        // å¦‚æœoffsetå°äºä¿æŠ¤é¡µçš„å¤§å°, å°±è°ƒç”¨mprotect()æŠŠå¤šä½™çš„å­—èŠ‚ï¼ˆguardsize - offsetï¼‰
+        // è®¾ç½®æˆä¸å¯è®¿é—®ï¼ˆPROT_NONEï¼‰
         const int offset = (char*)aligned_mem - (char*)mem;
         if (guardsize <= offset ||
             mprotect(aligned_mem, guardsize - offset, PROT_NONE) != 0) {
@@ -125,7 +125,7 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
         }
 
         s_stack_count.fetch_add(1, butil::memory_order_relaxed);
-        // ÄÚ´æ·ÖÅäÍê±Ï, Îªs¸³Öµ, ½«ĞÅÏ¢´ø³öÈ¥
+        // å†…å­˜åˆ†é…å®Œæ¯•, ä¸ºsèµ‹å€¼, å°†ä¿¡æ¯å¸¦å‡ºå»
         s->bottom = (char*)mem + memsize;
         s->stacksize = stacksize;
         s->guardsize = guardsize;

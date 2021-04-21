@@ -58,7 +58,7 @@ struct ResourceId {
     }
 };
 
-// ´Ë½á¹¹ÓÃÀ´¼ÇÂ¼¿ÕÏĞµÄchunk, ¿ÕÏĞµÄ×ÊÔ´¸öÊıÒÔ¼°idÊı×é
+// æ­¤ç»“æ„ç”¨æ¥è®°å½•ç©ºé—²çš„chunk, ç©ºé—²çš„èµ„æºä¸ªæ•°ä»¥åŠidæ•°ç»„
 template <typename T, size_t NITEM> 
 struct ResourcePoolFreeChunk {
     size_t nfree;
@@ -107,8 +107,8 @@ public:
 
     // Free identifiers are batched in a FreeChunk before they're added to
     // global list(_free_chunks).
-    typedef ResourcePoolFreeChunk<T, FREE_CHUNK_NITEM>      FreeChunk;  // ´óĞ¡¹Ì¶¨
-    typedef ResourcePoolFreeChunk<T, 0> DynamicFreeChunk;               // ±ä³¤chunk
+    typedef ResourcePoolFreeChunk<T, FREE_CHUNK_NITEM>      FreeChunk;  // å¤§å°å›ºå®š
+    typedef ResourcePoolFreeChunk<T, 0> DynamicFreeChunk;               // å˜é•¿chunk
 
     // When a thread needs memory, it allocates a Block. To improve locality,
     // items in the Block are only used by the thread.
@@ -120,7 +120,7 @@ public:
         Block() : nitem(0) {}
     };
 
-    // BlockGroupÓÃÓÚ¹ÜÀíblock, Ã¿¸öblockÖĞ°üº¬¶ÔÓ¦ÀàĞÍµÄÊı×é, Ïàµ±ÓÚ°ÑÊı×é´©ÆğÀ´
+    // BlockGroupç”¨äºç®¡ç†block, æ¯ä¸ªblockä¸­åŒ…å«å¯¹åº”ç±»å‹çš„æ•°ç»„, ç›¸å½“äºæŠŠæ•°ç»„ç©¿èµ·æ¥
     // A Resource addresses at most RP_MAX_BLOCK_NGROUP BlockGroups,
     // each BlockGroup addresses at most RP_GROUP_NBLOCK blocks. So a
     // resource addresses at most RP_MAX_BLOCK_NGROUP * RP_GROUP_NBLOCK Blocks.
@@ -165,10 +165,10 @@ public:
         // and "new T" are different: former one sets all fields to 0 which
         // we don't want.
 #define BAIDU_RESOURCE_POOL_GET(CTOR_ARGS)                              \
-        /*ÕâÀï»ñÈ¡¶ÔÏó·ÖËÄ²ã»º´æ*/                                      \
-        /*»ñÈ¡±¾µØ¿ÕÏĞµÄ×ÊÔ´, _cur_freeÊÇµ±Ç°threadµÄlocal poolÀïµÄ¿ÕÏĞ×ÊÔ´chunk*/\
-        /*nfreeÊÇ¸Ãchunk¿ÕÏĞ×ÊÔ´¸öÊı£¬Èç¹û´óÓÚ0£¬Ôò¸ù¾İnfreeÔÚ¶ÔÓ¦Î»ÖÃÈ¡³öÒ»¸öfree_id*/\
-        /*Èç¹û±¾µØFreeChunk²»ÊÇ¿ÕµÄ£¬ÔòÖ±½Ó¸´ÓÃÆäÖĞÒ»¸öid£¬¶¨Òåµ½Î¨Ò»Ö´ĞĞµÄT¶ÔÏóµØÖ·²¢·µ»Ø¡£*/\
+        /*è¿™é‡Œè·å–å¯¹è±¡åˆ†å››å±‚ç¼“å­˜*/                                      \
+        /*è·å–æœ¬åœ°ç©ºé—²çš„èµ„æº, _cur_freeæ˜¯å½“å‰threadçš„local poolé‡Œçš„ç©ºé—²èµ„æºchunk*/\
+        /*nfreeæ˜¯è¯¥chunkç©ºé—²èµ„æºä¸ªæ•°ï¼Œå¦‚æœå¤§äº0ï¼Œåˆ™æ ¹æ®nfreeåœ¨å¯¹åº”ä½ç½®å–å‡ºä¸€ä¸ªfree_id*/\
+        /*å¦‚æœæœ¬åœ°FreeChunkä¸æ˜¯ç©ºçš„ï¼Œåˆ™ç›´æ¥å¤ç”¨å…¶ä¸­ä¸€ä¸ªidï¼Œå®šä¹‰åˆ°å”¯ä¸€æ‰§è¡Œçš„Tå¯¹è±¡åœ°å€å¹¶è¿”å›ã€‚*/\
         /* Fetch local free id */                                       \
         if (_cur_free.nfree) {                                          \
             const ResourceId<T> free_id = _cur_free.ids[--_cur_free.nfree]; \
@@ -176,7 +176,7 @@ public:
             BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_SUB1;                   \
             return unsafe_address_resource(free_id);                    \
         }                                                               \
-        /*Èç¹û±¾µØFreeChunkÊÇ¿ÕµÄ£¬Ôò´ÓÈ«¾ÖµÄfreeÁĞ±í_free_chunksÖĞcopyÒ»¸öFreeChunkµ½±¾µØ£¬È»ºó¸´ÓÃÆäÖĞÒ»¸öid£¬¶¨Òåµ½Î¨Ò»Ö´ĞĞµÄT¶ÔÏóµØÖ·²¢·µ»Ø*/\
+        /*å¦‚æœæœ¬åœ°FreeChunkæ˜¯ç©ºçš„ï¼Œåˆ™ä»å…¨å±€çš„freeåˆ—è¡¨_free_chunksä¸­copyä¸€ä¸ªFreeChunkåˆ°æœ¬åœ°ï¼Œç„¶åå¤ç”¨å…¶ä¸­ä¸€ä¸ªidï¼Œå®šä¹‰åˆ°å”¯ä¸€æ‰§è¡Œçš„Tå¯¹è±¡åœ°å€å¹¶è¿”å›*/\
         /* Fetch a FreeChunk from global.                               \
            TODO: Popping from _free needs to copy a FreeChunk which is  \
            costly, but hardly impacts amortized performance. */         \
@@ -187,10 +187,10 @@ public:
             BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_SUB1;                   \
             return unsafe_address_resource(free_id);                    \
         }                                                               \
-        /*È«¾Ö¿ÕÏĞ×ÊÔ´Ò²Ã»ÓĞÔòÓÅÏÈ¿¼ÂÇ´Ó±¾µØblockÉÏĞÂ½¨¶ÔÏó*/\
+        /*å…¨å±€ç©ºé—²èµ„æºä¹Ÿæ²¡æœ‰åˆ™ä¼˜å…ˆè€ƒè™‘ä»æœ¬åœ°blockä¸Šæ–°å»ºå¯¹è±¡*/\
         /* Fetch memory from local block */                             \
         if (_cur_block && _cur_block->nitem < BLOCK_NITEM) {            \
-            /*Õâ¸övalueºÜÖØÒª£¬ÄÜ¹»¶¨Î»ÊÇÄÄ¸öblock groupÏÂµÄÄÄ¸öblockÏÂµÄµÚ¼¸¸öitem(ÒòÎªÃ¿Ò»¼¶Êı×é¶¼ÊÇ¹Ì¶¨µÄ³¤¶È)*/\
+            /*è¿™ä¸ªvalueå¾ˆé‡è¦ï¼Œèƒ½å¤Ÿå®šä½æ˜¯å“ªä¸ªblock groupä¸‹çš„å“ªä¸ªblockä¸‹çš„ç¬¬å‡ ä¸ªitem(å› ä¸ºæ¯ä¸€çº§æ•°ç»„éƒ½æ˜¯å›ºå®šçš„é•¿åº¦)*/\
             id->value = _cur_block_index * BLOCK_NITEM + _cur_block->nitem; \
             T* p = new ((T*)_cur_block->items + _cur_block->nitem) T CTOR_ARGS; \
             if (!ResourcePoolValidator<T>::validate(p)) {               \
@@ -200,7 +200,7 @@ public:
             ++_cur_block->nitem;                                        \
             return p;                                                   \
         }                                                               \
-        /*Èç¹û_cur_blockÃ»³õÊ¼»¯»òÕßÒÑ¾­ÂúÁË£¬ÔòÏÈĞÂ½¨Ò»¸öblock°ÑÖ¸Õë¸³¸ø_cur_block£¬ÔÚblockÀïĞÂ½¨¶ÔÏó*/\
+        /*å¦‚æœ_cur_blockæ²¡åˆå§‹åŒ–æˆ–è€…å·²ç»æ»¡äº†ï¼Œåˆ™å…ˆæ–°å»ºä¸€ä¸ªblockæŠŠæŒ‡é’ˆèµ‹ç»™_cur_blockï¼Œåœ¨blocké‡Œæ–°å»ºå¯¹è±¡*/\
         /* Fetch a Block from global */                                 \
         _cur_block = add_block(&_cur_block_index);                      \
         if (_cur_block != NULL) {                                       \
@@ -234,17 +234,17 @@ public:
 
         inline int return_resource(ResourceId<T> id) {
             // Return to local free list
-            // _cur_freeÊÇFreeChunkÀàĞÍ£»·µ»¹idµ½±¾µØµÄfreeÁĞ±íÖĞ
+            // _cur_freeæ˜¯FreeChunkç±»å‹ï¼›è¿”è¿˜idåˆ°æœ¬åœ°çš„freeåˆ—è¡¨ä¸­
             if (_cur_free.nfree < ResourcePool::free_chunk_nitem()) {
-                // °Ñ¹é»¹µÄid·Åµ½FreeChunkµÄidsÊı×éÖĞ
+                // æŠŠå½’è¿˜çš„idæ”¾åˆ°FreeChunkçš„idsæ•°ç»„ä¸­
                 _cur_free.ids[_cur_free.nfree++] = id;
                 BAIDU_RESOURCE_POOL_FREE_ITEM_NUM_ADD1;
                 return 0;
             }
             // Local free list is full, return it to global.
             // For copying issue, check comment in upper get()
-            // Ò»µ©±¾µØfreeÁĞ±íÂúÁË£¬Ôò°ÑÕâ¸öÂúµÄFreeChunk¹é»¹¸øÈ«¾ÖfreeÁĞ±í£¬
-            // È»ºó°ÑĞÂµÄid²åÈëµ½_cur_freeÖĞ£¬ÓÖÖØĞÂ¿ªÊ¼ÊÕ¼¯
+            // ä¸€æ—¦æœ¬åœ°freeåˆ—è¡¨æ»¡äº†ï¼Œåˆ™æŠŠè¿™ä¸ªæ»¡çš„FreeChunkå½’è¿˜ç»™å…¨å±€freeåˆ—è¡¨ï¼Œ
+            // ç„¶åæŠŠæ–°çš„idæ’å…¥åˆ°_cur_freeä¸­ï¼Œåˆé‡æ–°å¼€å§‹æ”¶é›†
             if (_pool->push_free_chunk(_cur_free)) {
                 _cur_free.nfree = 1;
                 _cur_free.ids[0] = id;
@@ -292,10 +292,10 @@ public:
     }
 
     inline T* get_resource(ResourceId<T>* id) {
-        // Ê×ÏÈ»ñÈ¡Ïß³Ì±¾µØ¶ÔÏóLocalPoolÖ¸Õë£¬Ê×´Îµ÷ÓÃÊ±Ã»ÓĞÔò´´½¨Ò»¸ö
+        // é¦–å…ˆè·å–çº¿ç¨‹æœ¬åœ°å¯¹è±¡LocalPoolæŒ‡é’ˆï¼Œé¦–æ¬¡è°ƒç”¨æ—¶æ²¡æœ‰åˆ™åˆ›å»ºä¸€ä¸ª
         LocalPool* lp = get_or_new_local_pool();
         if (__builtin_expect(lp != NULL, 1)) {
-            // µ÷ÓÃLocalPoolµÄgetº¯Êı
+            // è°ƒç”¨LocalPoolçš„getå‡½æ•°
             return lp->get(id);
         }
         return NULL;
@@ -452,7 +452,7 @@ private:
     }
 
     inline LocalPool* get_or_new_local_pool() {
-        LocalPool* lp = _local_pool;    // thread local±äÁ¿, ÊÇÕû¸ö×ÊÔ´·ÖÅäµÄÈë¿Ú
+        LocalPool* lp = _local_pool;    // thread localå˜é‡, æ˜¯æ•´ä¸ªèµ„æºåˆ†é…çš„å…¥å£
         if (lp != NULL) {
             return lp;
         }
@@ -462,7 +462,7 @@ private:
         }
         BAIDU_SCOPED_LOCK(_change_thread_mutex); //avoid race with clear()
         _local_pool = lp;
-        // ÎªĞÂ½¨µÄ_local_pool×¢²áÒ»¸öÍË³öºóÉ¾³ıµÄº¯Êı
+        // ä¸ºæ–°å»ºçš„_local_poolæ³¨å†Œä¸€ä¸ªé€€å‡ºååˆ é™¤çš„å‡½æ•°
         butil::thread_atexit(LocalPool::delete_local_pool, lp);
         _nlocal.fetch_add(1, butil::memory_order_relaxed);
         return lp;
@@ -543,8 +543,8 @@ private:
     }
 
     bool push_free_chunk(const FreeChunk& c) {
-        // DynamicFreeChunk* pµÄÄÚ´æ·ÖÅä¾ÍÀûÓÃÁËÈáĞÔÊı×éµÄÌØĞÔ£¬¸ù¾İcµÄ´óĞ¡À´½øĞĞÄÚ´æ·ÖÅä
-        // ¶¯Ì¬µÄÔ­ÒòÊÇÒòÎª·µ»¹µÄFreeChunk²»Ò»¶¨ÊÇÂúµÄ£¬ÀıÈçÄ³¸öÏß³ÌÍË³ö¡¢Ïú»ÙLocalPoolÊ±¹é»¹µÄFreeChunk¾Í²»Ò»¶¨ÊÇÂúµÄ
+        // DynamicFreeChunk* pçš„å†…å­˜åˆ†é…å°±åˆ©ç”¨äº†æŸ”æ€§æ•°ç»„çš„ç‰¹æ€§ï¼Œæ ¹æ®cçš„å¤§å°æ¥è¿›è¡Œå†…å­˜åˆ†é…
+        // åŠ¨æ€çš„åŸå› æ˜¯å› ä¸ºè¿”è¿˜çš„FreeChunkä¸ä¸€å®šæ˜¯æ»¡çš„ï¼Œä¾‹å¦‚æŸä¸ªçº¿ç¨‹é€€å‡ºã€é”€æ¯LocalPoolæ—¶å½’è¿˜çš„FreeChunkå°±ä¸ä¸€å®šæ˜¯æ»¡çš„
         DynamicFreeChunk* p = (DynamicFreeChunk*)malloc(
             offsetof(DynamicFreeChunk, ids) + sizeof(*c.ids) * c.nfree);
         if (!p) {
@@ -560,17 +560,17 @@ private:
     
     static butil::static_atomic<ResourcePool*> _singleton;
     static pthread_mutex_t _singleton_mutex;
-    // Ïß³Ì±¾µØÊı¾İ£¬Ã¿¸öÏß³ÌÒ»¸öLocalPool
-    // TLSÄÜ±ÜÃâ¶àÏß³Ì¾ºÕù£¬ÕâÒ²ÊÇÏû³ıËøÌáÉıĞÔÄÜµÄºËĞÄ
+    // çº¿ç¨‹æœ¬åœ°æ•°æ®ï¼Œæ¯ä¸ªçº¿ç¨‹ä¸€ä¸ªLocalPool
+    // TLSèƒ½é¿å…å¤šçº¿ç¨‹ç«äº‰ï¼Œè¿™ä¹Ÿæ˜¯æ¶ˆé™¤é”æå‡æ€§èƒ½çš„æ ¸å¿ƒ
     static BAIDU_THREAD_LOCAL LocalPool* _local_pool;
     static butil::static_atomic<long> _nlocal;
     static butil::static_atomic<size_t> _ngroup;
     static pthread_mutex_t _block_group_mutex;
     static pthread_mutex_t _change_thread_mutex;
-    // ±£´æËùÓĞÊµ¼ÊT¶ÔÏó¿Õ¼äµÄblockµÄ¼¯ºÏ£ºBlockGroup
+    // ä¿å­˜æ‰€æœ‰å®é™…Tå¯¹è±¡ç©ºé—´çš„blockçš„é›†åˆï¼šBlockGroup
     static butil::static_atomic<BlockGroup*> _block_groups[RP_MAX_BLOCK_NGROUP];
 
-    // »ØÊÕ¸÷¸öÏß³Ì¹é»¹µÄFreeChunk(²»Ò»¶¨´æÂúËùÒÔ¶¯Ì¬)
+    // å›æ”¶å„ä¸ªçº¿ç¨‹å½’è¿˜çš„FreeChunk(ä¸ä¸€å®šå­˜æ»¡æ‰€ä»¥åŠ¨æ€)
     std::vector<DynamicFreeChunk*> _free_chunks;
     pthread_mutex_t _free_chunks_mutex;
 

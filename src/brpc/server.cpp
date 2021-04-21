@@ -562,7 +562,7 @@ Acceptor* Server::BuildAcceptor() {
     }
     InputMessageHandler handler;
     std::vector<Protocol> protocols;
-    ListProtocols(&protocols);  // È¡³öËùÓĞ×¢²áÖ§³ÖµÄĞ­Òé
+    ListProtocols(&protocols);  // å–å‡ºæ‰€æœ‰æ³¨å†Œæ”¯æŒçš„åè®®
     for (size_t i = 0; i < protocols.size(); ++i) {
         if (protocols[i].process_request == NULL) {
             // The protocol does not support server-side.
@@ -581,7 +581,7 @@ Acceptor* Server::BuildAcceptor() {
         handler.verify = protocols[i].verify;
         handler.arg = this;
         handler.name = protocols[i].name;
-        // ±éÀúĞ­ÒéÀàĞÍ²¢½«handlerÌí¼Óµ½acceptor
+        // éå†åè®®ç±»å‹å¹¶å°†handleræ·»åŠ åˆ°acceptor
         if (acceptor->AddHandler(handler) != 0) {
             LOG(ERROR) << "Fail to add handler into Acceptor("
                        << acceptor << ')';
@@ -608,7 +608,7 @@ int Server::InitializeOnce() {
     if (_status != UNINITIALIZED) {
         return 0;
     }
-    GlobalInitializeOrDie();    // ±£Ö¤Ö»Ö´ĞĞÒ»´Î
+    GlobalInitializeOrDie();    // ä¿è¯åªæ‰§è¡Œä¸€æ¬¡
 
     if (_status != UNINITIALIZED) {
         return 0;
@@ -941,7 +941,7 @@ int Server::StartInternal(const butil::ip_t& ip,
                    << port_range.max_port << ']';
         return -1;
     }
-    // ÔÚÖ¸¶¨µÄipºÍ¶Ë¿Ú·¶Î§£¨ÔÚ·¶Î§ÄÚ²»¶Ï³¢ÊÔ£¬³É¹¦ÁË¾ÍÍ£Ö¹¼ÌĞø³¢ÊÔ£©ÉÏÆô¶¯¼àÌı
+    // åœ¨æŒ‡å®šçš„ipå’Œç«¯å£èŒƒå›´ï¼ˆåœ¨èŒƒå›´å†…ä¸æ–­å°è¯•ï¼ŒæˆåŠŸäº†å°±åœæ­¢ç»§ç»­å°è¯•ï¼‰ä¸Šå¯åŠ¨ç›‘å¬
     _listen_addr.ip = ip;
     for (int port = port_range.min_port; port <= port_range.max_port; ++port) {
         _listen_addr.port = port;
@@ -969,7 +969,7 @@ int Server::StartInternal(const butil::ip_t& ip,
             }
         }
         if (_am == NULL) {
-            _am = BuildAcceptor();  // ¹¹½¨½ÓÊÕÆ÷
+            _am = BuildAcceptor();  // æ„å»ºæ¥æ”¶å™¨
             if (NULL == _am) {
                 LOG(ERROR) << "Fail to build acceptor";
                 return -1;
@@ -982,7 +982,7 @@ int Server::StartInternal(const butil::ip_t& ip,
         GenerateVersionIfNeeded();
         g_running_server_count.fetch_add(1, butil::memory_order_relaxed);
 
-        // °ÑsockfdµÄËùÓĞÈ¨×ª½»¸ø_am
+        // æŠŠsockfdçš„æ‰€æœ‰æƒè½¬äº¤ç»™_am
         // Pass ownership of `sockfd' to `_am'
         if (_am->StartAccept(sockfd, _options.idle_timeout_sec,
                              _default_ssl_ctx) != 0) {
@@ -1177,7 +1177,7 @@ int Server::AddServiceInternal(google::protobuf::Service* service,
                    << " does not have any method.";
         return -1;
     }
-    // serverµÄ³õÊ¼»¯
+    // serverçš„åˆå§‹åŒ–
     if (InitializeOnce() != 0) {
         LOG(ERROR) << "Fail to initialize Server[" << version() << ']';
         return -1;

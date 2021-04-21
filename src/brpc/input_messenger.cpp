@@ -185,7 +185,7 @@ void InputMessenger::OnNewMessages(Socket* m) {
     // OK in most cases.
     std::unique_ptr<InputMessageBase, RunLastMessage> last_msg;
     bool read_eof = false;
-    while (!read_eof) { // Ã»¶ÁÍê¾ÍÒ»Ö±¶ÁÏÂÈ¥
+    while (!read_eof) { // æ²¡è¯»å®Œå°±ä¸€ç›´è¯»ä¸‹å»
         const int64_t received_us = butil::cpuwide_time_us();
         const int64_t base_realtime = butil::gettimeofday_us() - received_us;
 
@@ -230,7 +230,7 @@ void InputMessenger::OnNewMessages(Socket* m) {
         size_t last_size = m->_read_buf.length();
         int num_bthread_created = 0;
         while (1) {
-            // Ö´ĞĞÒ»´ÎÇĞ¸îÏûÏ¢
+            // æ‰§è¡Œä¸€æ¬¡åˆ‡å‰²æ¶ˆæ¯
             size_t index = 8888;
             ParseResult pr = messenger->CutInputMessage(m, &index, read_eof);
             if (!pr.is_ok()) {
@@ -286,7 +286,7 @@ void InputMessenger::OnNewMessages(Socket* m) {
             // ownership to last_msg
             DestroyingPtr<InputMessageBase> msg(pr.message());
             QueueMessage(last_msg.release(), &num_bthread_created,
-                             m->_keytable_pool);    // Æô¶¯Ò»¸öbthreadÀ´´¦ÀíÒ»¸ömsg
+                             m->_keytable_pool);    // å¯åŠ¨ä¸€ä¸ªbthreadæ¥å¤„ç†ä¸€ä¸ªmsg
             if (handlers[index].process == NULL) {
                 LOG(ERROR) << "process of index=" << index << " is NULL";
                 continue;

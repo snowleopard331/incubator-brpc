@@ -220,7 +220,7 @@ int EventDispatcher::RemoveEpollOut(SocketId socket_id,
     return -1;
 }
 
-// epollÌí¼ÓÊÂ¼ş
+// epollæ·»åŠ äº‹ä»¶
 int EventDispatcher::AddConsumer(SocketId socket_id, int fd) {
     if (_epfd < 0) {
         errno = EINVAL;
@@ -228,8 +228,8 @@ int EventDispatcher::AddConsumer(SocketId socket_id, int fd) {
     }
 #if defined(OS_LINUX)
     epoll_event evt;
-    evt.events = EPOLLIN | EPOLLET; // ÊÂ¼şÀàĞÍ, ±ßÔµ´¥·¢µÄEPOLLIN
-    evt.data.u64 = socket_id;       // ±£´æsocket_id
+    evt.events = EPOLLIN | EPOLLET; // äº‹ä»¶ç±»å‹, è¾¹ç¼˜è§¦å‘çš„EPOLLIN
+    evt.data.u64 = socket_id;       // ä¿å­˜socket_id
 #ifdef BRPC_SOCKET_HAS_EOF
     evt.events |= has_epollrdhup;
 #endif
@@ -269,13 +269,13 @@ int EventDispatcher::RemoveConsumer(int fd) {
     return 0;
 }
 
-// ·â×°ÁËRun£¬ÓÃÓÚÔÚbthreadÀïÆô¶¯µ÷ÓÃRun
+// å°è£…äº†Runï¼Œç”¨äºåœ¨bthreadé‡Œå¯åŠ¨è°ƒç”¨Run
 void* EventDispatcher::RunThis(void* arg) {
     ((EventDispatcher*)arg)->Run();
     return NULL;
 }
 
-// Ö´ĞĞepollµÄÏß³Ìº¯Êı, ´¦Àí¶ÁĞ´ÊÂ¼ş
+// æ‰§è¡Œepollçš„çº¿ç¨‹å‡½æ•°, å¤„ç†è¯»å†™äº‹ä»¶
 void EventDispatcher::Run() {
     while (!_stop) {
 #if defined(OS_LINUX)
@@ -287,7 +287,7 @@ void EventDispatcher::Run() {
             n = epoll_wait(_epfd, e, ARRAY_SIZE(e), -1);
         }
 #else
-        const int n = epoll_wait(_epfd, e, ARRAY_SIZE(e), -1);  // -1±íÊ¾ÎŞÏŞ×èÈû
+        const int n = epoll_wait(_epfd, e, ARRAY_SIZE(e), -1);  // -1è¡¨ç¤ºæ— é™é˜»å¡
 #endif
 #elif defined(OS_MACOSX)
         struct kevent e[32];

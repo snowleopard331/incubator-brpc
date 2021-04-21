@@ -88,7 +88,7 @@ public:
     // The callback will be run in the beginning of next-run bthread.
     // Can't be called by current bthread directly because it often needs
     // the target to be suspended already.
-    typedef void (*RemainedFn)(void*);  // bthreadÔÚ¿ªÊ¼ÔËĞĞ×Ô¼ºÂß¼­Ç°ĞèÒªµÄÒ»Ğ©×¼±¸¹¤×÷
+    typedef void (*RemainedFn)(void*);  // bthreadåœ¨å¼€å§‹è¿è¡Œè‡ªå·±é€»è¾‘å‰éœ€è¦çš„ä¸€äº›å‡†å¤‡å·¥ä½œ
     void set_remained(RemainedFn cb, void* arg) {
         _last_context_remained = cb;
         _last_context_remained_arg = arg;
@@ -213,19 +213,19 @@ friend class TaskControl;
 
     bool steal_task(bthread_t* tid) {
         /*
-            Ê×ÏÈTGµÄremote_rq¶ÓÁĞÖĞµÄÈÎÎñ³ö¶Ó
-            ÎªºÎ²»ÏÈÈ¡µ±Ç°_rqÖĞµÄÈÎÎñ? 
-            Ô­ÒòÊÇÎªÁË±ÜÃâ race condition. Ò²¾ÍÊÇ±ÜÃâ¶à¸öTGµÈ´ıÈÎÎñµÄÊ±ºò, 
-            µ±Ç°TG´Ó_rqÈ¥ÈÎÎñ, ÓëÆäËûTG¹ıÀ´Õâ±ßÇÔÈ¡ÈÎÎñÔì³É¾ºÌ¬, ´Ó¶øÌáÉıĞÔÄÜ
+            é¦–å…ˆTGçš„remote_rqé˜Ÿåˆ—ä¸­çš„ä»»åŠ¡å‡ºé˜Ÿ
+            ä¸ºä½•ä¸å…ˆå–å½“å‰_rqä¸­çš„ä»»åŠ¡? 
+            åŸå› æ˜¯ä¸ºäº†é¿å… race condition. ä¹Ÿå°±æ˜¯é¿å…å¤šä¸ªTGç­‰å¾…ä»»åŠ¡çš„æ—¶å€™, 
+            å½“å‰TGä»_rqå»ä»»åŠ¡, ä¸å…¶ä»–TGè¿‡æ¥è¿™è¾¹çªƒå–ä»»åŠ¡é€ æˆç«æ€, ä»è€Œæå‡æ€§èƒ½
         */ 
         if (_remote_rq.pop(tid)) {
             return true;
         }
 #ifndef BTHREAD_DONT_SAVE_PARKING_STATE
-        // _remote_rqÎŞÈÎÎñÊ±, _last_pl_state»á´Ó_plÍ¬²½Ò»´Î×´Ì¬
+        // _remote_rqæ— ä»»åŠ¡æ—¶, _last_pl_stateä¼šä»_plåŒæ­¥ä¸€æ¬¡çŠ¶æ€
         _last_pl_state = _pl->get_state();
 #endif
-        // Èç¹û_remote_rqÖĞÃ»ÓĞÔòÊ¹ÓÃÈ«¾ÖTCÀ´ÇÔÈ¡ÈÎÎñ
+        // å¦‚æœ_remote_rqä¸­æ²¡æœ‰åˆ™ä½¿ç”¨å…¨å±€TCæ¥çªƒå–ä»»åŠ¡
         return _control->steal_task(tid, &_steal_seed, _steal_offset);
     }
 
@@ -247,7 +247,7 @@ friend class TaskControl;
     RemainedFn _last_context_remained;
     void* _last_context_remained_arg;
 
-    ParkingLot* _pl;    // Ö¸ÏòTCÖĞµÄPL
+    ParkingLot* _pl;    // æŒ‡å‘TCä¸­çš„PL
 #ifndef BTHREAD_DONT_SAVE_PARKING_STATE
     ParkingLot::State _last_pl_state;
 #endif
@@ -255,8 +255,8 @@ friend class TaskControl;
     size_t _steal_offset;
     ContextualStack* _main_stack;
     bthread_t _main_tid;
-    WorkStealingQueue<bthread_t> _rq;   // µ±Ç°TG½«bthreadÈëµ½´Ë¶ÓÁĞ
-    RemoteTaskQueue _remote_rq;         // ÆäËûÃ»ÓĞTGµÄÏß³ÌÖĞ°ÑbthreadÈëµ½´Ë¶ÓÁĞ
+    WorkStealingQueue<bthread_t> _rq;   // å½“å‰TGå°†bthreadå…¥åˆ°æ­¤é˜Ÿåˆ—
+    RemoteTaskQueue _remote_rq;         // å…¶ä»–æ²¡æœ‰TGçš„çº¿ç¨‹ä¸­æŠŠbthreadå…¥åˆ°æ­¤é˜Ÿåˆ—
     int _remote_num_nosignal;
     int _remote_nsignaled;
 };

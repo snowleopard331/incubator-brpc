@@ -61,11 +61,11 @@ inline void TaskGroup::exchange(TaskGroup** pg, bthread_t next_tid) {
 
 inline void TaskGroup::sched_to(TaskGroup** pg, bthread_t next_tid) {
     /*
-        tid ÊÇÓÉ version + slot ×é³É, ¹ÊÄÜ¹»Í¨¹ıtidÖĞµÄslotÖ±½ÓÄÃµ½tid¶ÔÓ¦µÄTM
+        tid æ˜¯ç”± version + slot ç»„æˆ, æ•…èƒ½å¤Ÿé€šè¿‡tidä¸­çš„slotç›´æ¥æ‹¿åˆ°tidå¯¹åº”çš„TM
     */
-    TaskMeta* next_meta = address_meta(next_tid);   // Í¨¹ıtidÄÃµ½¶ÔÓ¦bthreadµÄtaskmetaĞÅÏ¢
+    TaskMeta* next_meta = address_meta(next_tid);   // é€šè¿‡tidæ‹¿åˆ°å¯¹åº”bthreadçš„taskmetaä¿¡æ¯
     if (next_meta->stack == NULL) {
-        // »ñÈ¡¶ÔÓ¦µÄ ContextualStack ĞÅÏ¢
+        // è·å–å¯¹åº”çš„ ContextualStack ä¿¡æ¯
         ContextualStack* stk = get_stack(next_meta->stack_type(), task_runner);
         if (stk) {
             next_meta->set_stack(stk);

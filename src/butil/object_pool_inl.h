@@ -97,7 +97,7 @@ public:
     // items in the Block are only used by the thread.
     // To support cache-aligned objects, align Block.items by cacheline.
     struct BAIDU_CACHELINE_ALIGNMENT Block {
-        // newÖ®ºó¾ÍÊÇ³¤¶ÈÎªBLOCK_NITEMµÄ T Êı×é
+        // newä¹‹åå°±æ˜¯é•¿åº¦ä¸ºBLOCK_NITEMçš„ T æ•°ç»„
         char items[sizeof(T) * BLOCK_NITEM];
         size_t nitem;
 
@@ -147,20 +147,20 @@ public:
         // and "new T" are different: former one sets all fields to 0 which
         // we don't want.
 #define BAIDU_OBJECT_POOL_GET(CTOR_ARGS)                                \
-        /*ÕâÀï»ñÈ¡¶ÔÏó·ÖËÄ²ã»º´æ*/                                      \
+        /*è¿™é‡Œè·å–å¯¹è±¡åˆ†å››å±‚ç¼“å­˜*/                                      \
         /* Fetch local free ptr */                                      \
-        if (_cur_free.nfree) { /*Èç¹û¶ÔÏó³ØÖĞÓĞÊ£ÓàÔòÖ±½Ó·µ»Ø*/         \
+        if (_cur_free.nfree) { /*å¦‚æœå¯¹è±¡æ± ä¸­æœ‰å‰©ä½™åˆ™ç›´æ¥è¿”å›*/         \
             BAIDU_OBJECT_POOL_FREE_ITEM_NUM_SUB1;                       \
             return _cur_free.ptrs[--_cur_free.nfree];                   \
         }                                                               \
         /* Fetch a FreeChunk from global.                               \
            TODO: Popping from _free needs to copy a FreeChunk which is  \
            costly, but hardly impacts amortized performance. */         \
-        if (_pool->pop_free_chunk(_cur_free)) { /*¶ÔÏó³ØÖĞÎŞÊ£Óà*/      \
+        if (_pool->pop_free_chunk(_cur_free)) { /*å¯¹è±¡æ± ä¸­æ— å‰©ä½™*/      \
             BAIDU_OBJECT_POOL_FREE_ITEM_NUM_SUB1;                       \
             return _cur_free.ptrs[--_cur_free.nfree];                   \
         }                                                               \
-        /* Ê¹ÓÃ¶¨Î»new, ÔÚÖ¸¶¨ÄÚ´æÎ»ÖÃÈ¥¹¹Ôì¶ÔÏó. Èç¹û³É¹¦ÔòÖ±½Ó°Ñ¹¹ÔìºÃµÄ¶ÔÏóÖ¸Õë·µ»Ø*/  \
+        /* ä½¿ç”¨å®šä½new, åœ¨æŒ‡å®šå†…å­˜ä½ç½®å»æ„é€ å¯¹è±¡. å¦‚æœæˆåŠŸåˆ™ç›´æ¥æŠŠæ„é€ å¥½çš„å¯¹è±¡æŒ‡é’ˆè¿”å›*/  \
         /* Fetch memory from local block */                             \
         if (_cur_block && _cur_block->nitem < BLOCK_NITEM) {            \
             T* obj = new ((T*)_cur_block->items + _cur_block->nitem) T CTOR_ARGS; \
@@ -171,8 +171,8 @@ public:
             ++_cur_block->nitem;                                        \
             return obj;                                                 \
         }                                                               \
-        /* ×ßµ½ÕâÀïËµÃ÷¹¹Ôì¶ÔÏó¹¹ÔìÊ§°ÜÁË, ÔòĞÂ½¨Ò»¸öblockÔÙnew*/       \
-        /*add_blockÊÇResourcePoolÀàµÄstaticº¯Êı£¨Ç¶Ì×Àà¿ÉÒÔÖ±½ÓÊ¹ÓÃÍâ²¿ÀàµÄ¾²Ì¬³ÉÔ±º¯Êı£©*/\
+        /* èµ°åˆ°è¿™é‡Œè¯´æ˜æ„é€ å¯¹è±¡æ„é€ å¤±è´¥äº†, åˆ™æ–°å»ºä¸€ä¸ªblockå†new*/       \
+        /*add_blockæ˜¯ResourcePoolç±»çš„staticå‡½æ•°ï¼ˆåµŒå¥—ç±»å¯ä»¥ç›´æ¥ä½¿ç”¨å¤–éƒ¨ç±»çš„é™æ€æˆå‘˜å‡½æ•°ï¼‰*/\
         /* Fetch a Block from global */                                 \
         _cur_block = add_block(&_cur_block_index);                      \
         if (_cur_block != NULL) {                                       \
@@ -333,21 +333,21 @@ private:
         pthread_mutex_destroy(&_free_chunks_mutex);
     }
 
-    // ´´½¨Ò»¸öBlock¶ÔÏó²¢²åÈëµ½BlockGroupµÄ×îÓÒ±ß
+    // åˆ›å»ºä¸€ä¸ªBlockå¯¹è±¡å¹¶æ’å…¥åˆ°BlockGroupçš„æœ€å³è¾¹
     // Create a Block and append it to right-most BlockGroup.
     static Block* add_block(size_t* index) {
-        // ´´½¨Ò»¸öĞÂµÄblock¶ÔÏó
+        // åˆ›å»ºä¸€ä¸ªæ–°çš„blockå¯¹è±¡
         Block* const new_block = new(std::nothrow) Block;
         if (NULL == new_block) {
             return NULL;
         }
         size_t ngroup;
         do {
-            // »ñÈ¡µ±Ç°block groupµÄ¸öÊı
+            // è·å–å½“å‰block groupçš„ä¸ªæ•°
             ngroup = _ngroup.load(butil::memory_order_acquire);
-            // Èç¹ûµ±Ç°block group¸öÊı´óÓÚ0£¬ÄÇÃ´¿´¿´×îºóµÄBlockGroupÊÇ²»ÊÇÒÑ¾­ÂúÁË£¬
-            // Èç¹ûÃ»ÂúÔò°ÑĞÂµÄblock¶ÔÏó²åÈëµ½Õâ¸öBlockGroupÖĞ£¬²¢¼ÆËãËüµÄÈ«¾ÖË÷Òıindex£¬
-            // Èç¹ûÂúÁËÔòĞÂ½¨Ò»¸öBlockGroup£¬ÔÙ²åÈëblock¶ÔÏó
+            // å¦‚æœå½“å‰block groupä¸ªæ•°å¤§äº0ï¼Œé‚£ä¹ˆçœ‹çœ‹æœ€åçš„BlockGroupæ˜¯ä¸æ˜¯å·²ç»æ»¡äº†ï¼Œ
+            // å¦‚æœæ²¡æ»¡åˆ™æŠŠæ–°çš„blockå¯¹è±¡æ’å…¥åˆ°è¿™ä¸ªBlockGroupä¸­ï¼Œå¹¶è®¡ç®—å®ƒçš„å…¨å±€ç´¢å¼•indexï¼Œ
+            // å¦‚æœæ»¡äº†åˆ™æ–°å»ºä¸€ä¸ªBlockGroupï¼Œå†æ’å…¥blockå¯¹è±¡
             if (ngroup >= 1) {
                 BlockGroup* const g =
                     _block_groups[ngroup - 1].load(butil::memory_order_consume);
@@ -356,7 +356,7 @@ private:
                 if (block_index < OP_GROUP_NBLOCK) {
                     g->blocks[block_index].store(
                         new_block, butil::memory_order_release);
-                    // Õâ¸öindexÊÇÈ«¾ÖµÄblock index£¬²»ÊÇËùÊôµÄgroupµÄblock_index
+                    // è¿™ä¸ªindexæ˜¯å…¨å±€çš„block indexï¼Œä¸æ˜¯æ‰€å±çš„groupçš„block_index
                     *index = (ngroup - 1) * OP_GROUP_NBLOCK + block_index;
                     return new_block;
                 }

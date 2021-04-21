@@ -35,7 +35,7 @@ struct StackStorage {
      int guardsize;
     // Assume stack grows upwards.
     // http://www.boost.org/doc/libs/1_55_0/libs/context/doc/html/context/stack.html
-    void* bottom;       // Õ»·ÖÅäÊ±»áÍ¨¹ımmapÄäÃûÓ³ÉäÒ»¶Î¿Õ¼ä£¬È»ºó½«¸ßµØÖ·Î»¸³Öµ¸øbottom
+    void* bottom;       // æ ˆåˆ†é…æ—¶ä¼šé€šè¿‡mmapåŒ¿åæ˜ å°„ä¸€æ®µç©ºé—´ï¼Œç„¶åå°†é«˜åœ°å€ä½èµ‹å€¼ç»™bottom
     unsigned valgrind_stack_id;
 
     // Clears all members.
@@ -62,9 +62,9 @@ enum StackType {
 };
 
 struct ContextualStack {
-    bthread_fcontext_t context; // Õ»¶¥
-    StackType stacktype;        // Õ»ÀàĞÍ
-    StackStorage storage;       // Õ»µÄ¾ßÌåĞÅÏ¢
+    bthread_fcontext_t context; // æ ˆé¡¶
+    StackType stacktype;        // æ ˆç±»å‹
+    StackStorage storage;       // æ ˆçš„å…·ä½“ä¿¡æ¯
 };
 
 // Get a stack in the `type' and run `entry' at the first time that the

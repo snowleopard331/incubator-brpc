@@ -52,13 +52,13 @@ public:
             LOG(ERROR) << "Invalid capacity=" << capacity;
             return -1;
         }
-        // ³õÊ¼»¯ÈÝÁ¿ÒªÎª2µÄÕûÊý´ÎÃÝ
+        // åˆå§‹åŒ–å®¹é‡è¦ä¸º2çš„æ•´æ•°æ¬¡å¹‚
         if (capacity & (capacity - 1)) {
             LOG(ERROR) << "Invalid capacity=" << capacity
                        << " which must be power of 2";
             return -1;
         }
-        // ³õÊ¼»¯Ä£°åÀàÐÍµÄÊý×é
+        // åˆå§‹åŒ–æ¨¡æ¿ç±»åž‹çš„æ•°ç»„
         _buffer = new(std::nothrow) T[capacity];
         if (NULL == _buffer) {
             return -1;
@@ -71,7 +71,7 @@ public:
     // Returns true on pushed.
     // May run in parallel with steal().
     // Never run in parallel with pop() or another push().
-    // Íùbottom²àÌí¼ÓÔªËØ
+    // å¾€bottomä¾§æ·»åŠ å…ƒç´ 
     bool push(const T& x) {
         const size_t b = _bottom.load(butil::memory_order_relaxed);
         const size_t t = _top.load(butil::memory_order_acquire);
@@ -87,7 +87,7 @@ public:
     // Returns true on popped and the item is written to `val'.
     // May run in parallel with steal().
     // Never run in parallel with push() or another pop().
-    // ´Óbottom²àÈ¡Êý¾Ý
+    // ä»Žbottomä¾§å–æ•°æ®
     bool pop(T* val) {
         const size_t b = _bottom.load(butil::memory_order_relaxed);
         size_t t = _top.load(butil::memory_order_relaxed);
@@ -96,17 +96,17 @@ public:
             // Stale _top which is smaller should not enter this branch.
             return false;
         }
-        // ÒòÎª»áºÍ´Ótop²àÈ¡µÄstealÍ¬Ê±ÔËÐÐ£¬ºËÐÄË¼ÏëÊÇÏÈ°Ñbottom¼õ1£¬Ëø¶¨µôÒ»¸öÔªËØ£¬
-        // ·ÀÖ¹±»stealÈ¡£¬ÔÚÖ»ÓÐÒ»¸öÔªËØµÄÊ±ºò»áºÍsteal¾ºÕù¡£¶øÇÒºÜÖØÒªµÄÒ»µã£¬Õâ¸ö
-        // bottomµÄ¼õ1Ò»¶¨Òª±»steal¼°Ê±¸ÐÖªµ½£¬·ñÔò¾Í»á³öÏÖÒ»¸öÔªËØ¶à´ÎÄÃµ½µÄÎÊÌâ
+        // å› ä¸ºä¼šå’Œä»Žtopä¾§å–çš„stealåŒæ—¶è¿è¡Œï¼Œæ ¸å¿ƒæ€æƒ³æ˜¯å…ˆæŠŠbottomå‡1ï¼Œé”å®šæŽ‰ä¸€ä¸ªå…ƒç´ ï¼Œ
+        // é˜²æ­¢è¢«stealå–ï¼Œåœ¨åªæœ‰ä¸€ä¸ªå…ƒç´ çš„æ—¶å€™ä¼šå’Œstealç«žäº‰ã€‚è€Œä¸”å¾ˆé‡è¦çš„ä¸€ç‚¹ï¼Œè¿™ä¸ª
+        // bottomçš„å‡1ä¸€å®šè¦è¢«stealåŠæ—¶æ„ŸçŸ¥åˆ°ï¼Œå¦åˆ™å°±ä¼šå‡ºçŽ°ä¸€ä¸ªå…ƒç´ å¤šæ¬¡æ‹¿åˆ°çš„é—®é¢˜
         const size_t newb = b - 1;
         _bottom.store(newb, butil::memory_order_relaxed);
-        // ±£Ö¤Êý¾ÝÍ¬²½µÄ¹Ø¼ü£¬ÕâÐÐ´úÂëÔÚx86-64cpuÉÏ¶ÔÓ¦µÄµäÐÍÖ¸ÁîÊÇMFENCE£¬¿ÉÒÔ±£Ö¤
-        // MFENCEÖ®ºóµÄÖ¸ÁîÔÚÖ´ÐÐÖ®Ç°MFENCEÇ°ÃæµÄÐÞ¸ÄÈ«¾Ö¿É¼û£¬Ò²¾Í¿ÉÒÔ±£Ö¤t¸³ÖµÍê³Éºó
-        // bottomµÄstoreÒÑ¾­È«¾Ö¿É¼ûÁË
+        // ä¿è¯æ•°æ®åŒæ­¥çš„å…³é”®ï¼Œè¿™è¡Œä»£ç åœ¨x86-64cpuä¸Šå¯¹åº”çš„å…¸åž‹æŒ‡ä»¤æ˜¯MFENCEï¼Œå¯ä»¥ä¿è¯
+        // MFENCEä¹‹åŽçš„æŒ‡ä»¤åœ¨æ‰§è¡Œä¹‹å‰MFENCEå‰é¢çš„ä¿®æ”¹å…¨å±€å¯è§ï¼Œä¹Ÿå°±å¯ä»¥ä¿è¯tèµ‹å€¼å®ŒæˆåŽ
+        // bottomçš„storeå·²ç»å…¨å±€å¯è§äº†
         butil::atomic_thread_fence(butil::memory_order_seq_cst);
         t = _top.load(butil::memory_order_relaxed);
-        if (t > newb) { // ÅÐ¶ÏÊÇ·ñÓÐ¿ÉÈ¡ÔªËØ
+        if (t > newb) { // åˆ¤æ–­æ˜¯å¦æœ‰å¯å–å…ƒç´ 
             _bottom.store(b, butil::memory_order_relaxed);
             return false;
         }
@@ -124,7 +124,7 @@ public:
     // Steal one item from the queue.
     // Returns true on stolen.
     // May run in parallel with push() pop() or another steal().
-    // steal()»áÓëpush()/pop()»òÕßÆäËûµÄsteal()²¢·¢
+    // steal()ä¼šä¸Žpush()/pop()æˆ–è€…å…¶ä»–çš„steal()å¹¶å‘
     bool steal(T* val) {
         size_t t = _top.load(butil::memory_order_acquire);
         size_t b = _bottom.load(butil::memory_order_acquire);
@@ -133,20 +133,20 @@ public:
             return false;
         }
         do {
-            // ×÷Õß¾Ù¹ýÒ»¸öÏà¹ØÀý×Ó£¬Ç°ÃæÎÄÕÂÒ²ÓÐÈËÎÊµ½ÁËÕâ¸ö£¬ÕâÀï²ûÊöÏÂ£¬¼ÙÉètop=1£¬
-            // bottom=3£¬popÏÈÖÃnewb=2£¬bottom=newb=2£¬È»ºó¶ÁÈ¡ÁËÒ»¸öt=top=1£¬ËæºóÓÐÁ½¸ö
-            // stealÕùÇÀ£¬ÆäÖÐÒ»¸ö³É¹¦ÁË£¬´ËÊ±top=2£¬Ê§°ÜµÄ¼ÌÐøÑ­»·£¬Èç¹ûÒòÎªÊý¾ÝÍ¬²½µÄ
-            // Ô­Òò´ËÊ±Ã»¿´µ½popÖÃµÄbottom=2£¬Ò²¾ÍÊÇÃ»ÓÐÈ«¾Ö¿É¼û£¬ÄÇÃ´stealÏß³ÌÀïÈÔÈ»ÊÇ
-            // b=bottom=3£¬Õâ´ÎcasÄÜ³É¹¦ÖÃtop=3£¬ÒòÎªpopÏß³ÌÊÇÔ­À´¶ÁÈ¡µÄt£¬t!=newb³ÉÁ¢Ò²
-            // ³É¹¦£¬µ¼ÖÂÒ»¸öÔªËØ·µ»ØÁËÁ½´Î¡£
-            // ¶øÒ»µ©popº¯ÊýÀïÓÐÁËatomic_thread_fence(butil::memory_order_seq_cst)£¬ÔÚ
-            // x86 - 64µÄÊµ¼ÊÊµÏÖÉÏÍ¨³£ÊÇ²åÈëmfenceÖ¸Áî£¬Õâ¸öÖ¸Áî»áÈÃÇ°ÃæµÄstoreÈ«¾Ö¿É¼û£¬
-            // ÕâÑùÒ»À´£¬ÎÞÂÛÄÇÁ½¸östealµÄµÚÒ»´ÎcasÑ­»·¶Áµ½µÄÊÇÐÂµÄbottom»¹ÊÇÀÏµÄbottom£¬
-            // Ê§°ÜºóÔÙÑ­»·µÄÄÇÒ»¸öµÚ¶þ´Î¶Áµ½µÄ¿Ï¶¨ÊÇÐÂµÄbottom£¬Ëæ¼´ÒòÎªt >= bÊ§°Ü£¬
-            // ÕâÑù¾ÍÖ»ÓÐpop·µ»ØÁË¡£Èç¹ûatomic_thread_fence(butil::memory_order_seq_cst)
-            // ÊÇÓÃmfenceÊµÏÖµÄ£¬Õâ¸ö³¡¾°µÄstealÀïµÄbutil::atomic_thread_fence(butil::memory_order_seq_cst)ÊÇ¿ÉÒÔ²»ÐèÒªµÄ£¬¿´×÷ÕßÔÚÄÇ¸öissueÀïµÄ»Ø¸´ÊÇ
-            // µ£ÐÄÊµÏÖµÄ²»È·¶¨ÐÔ£¬ÒÔ¼°ÎªÁËÃ÷È·ËùÒÔÒ²Ð´ÁË
-            butil::atomic_thread_fence(butil::memory_order_seq_cst);    // ÎªÁË±£Ö¤È¡³öÔªËØÔÚ¾ºÕùÇé¿öÏÂµÄÕýÈ·ÐÔ
+            // ä½œè€…ä¸¾è¿‡ä¸€ä¸ªç›¸å…³ä¾‹å­ï¼Œå‰é¢æ–‡ç« ä¹Ÿæœ‰äººé—®åˆ°äº†è¿™ä¸ªï¼Œè¿™é‡Œé˜è¿°ä¸‹ï¼Œå‡è®¾top=1ï¼Œ
+            // bottom=3ï¼Œpopå…ˆç½®newb=2ï¼Œbottom=newb=2ï¼Œç„¶åŽè¯»å–äº†ä¸€ä¸ªt=top=1ï¼ŒéšåŽæœ‰ä¸¤ä¸ª
+            // stealäº‰æŠ¢ï¼Œå…¶ä¸­ä¸€ä¸ªæˆåŠŸäº†ï¼Œæ­¤æ—¶top=2ï¼Œå¤±è´¥çš„ç»§ç»­å¾ªçŽ¯ï¼Œå¦‚æžœå› ä¸ºæ•°æ®åŒæ­¥çš„
+            // åŽŸå› æ­¤æ—¶æ²¡çœ‹åˆ°popç½®çš„bottom=2ï¼Œä¹Ÿå°±æ˜¯æ²¡æœ‰å…¨å±€å¯è§ï¼Œé‚£ä¹ˆstealçº¿ç¨‹é‡Œä»ç„¶æ˜¯
+            // b=bottom=3ï¼Œè¿™æ¬¡casèƒ½æˆåŠŸç½®top=3ï¼Œå› ä¸ºpopçº¿ç¨‹æ˜¯åŽŸæ¥è¯»å–çš„tï¼Œt!=newbæˆç«‹ä¹Ÿ
+            // æˆåŠŸï¼Œå¯¼è‡´ä¸€ä¸ªå…ƒç´ è¿”å›žäº†ä¸¤æ¬¡ã€‚
+            // è€Œä¸€æ—¦popå‡½æ•°é‡Œæœ‰äº†atomic_thread_fence(butil::memory_order_seq_cst)ï¼Œåœ¨
+            // x86 - 64çš„å®žé™…å®žçŽ°ä¸Šé€šå¸¸æ˜¯æ’å…¥mfenceæŒ‡ä»¤ï¼Œè¿™ä¸ªæŒ‡ä»¤ä¼šè®©å‰é¢çš„storeå…¨å±€å¯è§ï¼Œ
+            // è¿™æ ·ä¸€æ¥ï¼Œæ— è®ºé‚£ä¸¤ä¸ªstealçš„ç¬¬ä¸€æ¬¡caså¾ªçŽ¯è¯»åˆ°çš„æ˜¯æ–°çš„bottomè¿˜æ˜¯è€çš„bottomï¼Œ
+            // å¤±è´¥åŽå†å¾ªçŽ¯çš„é‚£ä¸€ä¸ªç¬¬äºŒæ¬¡è¯»åˆ°çš„è‚¯å®šæ˜¯æ–°çš„bottomï¼Œéšå³å› ä¸ºt >= bå¤±è´¥ï¼Œ
+            // è¿™æ ·å°±åªæœ‰popè¿”å›žäº†ã€‚å¦‚æžœatomic_thread_fence(butil::memory_order_seq_cst)
+            // æ˜¯ç”¨mfenceå®žçŽ°çš„ï¼Œè¿™ä¸ªåœºæ™¯çš„stealé‡Œçš„butil::atomic_thread_fence(butil::memory_order_seq_cst)æ˜¯å¯ä»¥ä¸éœ€è¦çš„ï¼Œçœ‹ä½œè€…åœ¨é‚£ä¸ªissueé‡Œçš„å›žå¤æ˜¯
+            // æ‹…å¿ƒå®žçŽ°çš„ä¸ç¡®å®šæ€§ï¼Œä»¥åŠä¸ºäº†æ˜Žç¡®æ‰€ä»¥ä¹Ÿå†™äº†
+            butil::atomic_thread_fence(butil::memory_order_seq_cst);    // ä¸ºäº†ä¿è¯å–å‡ºå…ƒç´ åœ¨ç«žäº‰æƒ…å†µä¸‹çš„æ­£ç¡®æ€§
             b = _bottom.load(butil::memory_order_acquire);
             if (t >= b) {
                 return false;

@@ -57,7 +57,7 @@ const bool ALLOW_UNUSED dummy_show_per_worker_usage_in_vars =
     ::GFLAGS_NS::RegisterFlagValidator(&FLAGS_show_per_worker_usage_in_vars,
                                     pass_bool);
 
-// Õâ¸ötls±äÁ¿ºÜÖØÒª£¬±íÃ÷µ±Ç°Ïß³ÌËù¹éÊôµÄtaskgroup£¬Èç¹ûÎªnull£¬ËµÃ÷µ±Ç°Ïß³Ì²»ÊÇbthread
+// è¿™ä¸ªtlså˜é‡å¾ˆé‡è¦ï¼Œè¡¨æ˜å½“å‰çº¿ç¨‹æ‰€å½’å±çš„taskgroupï¼Œå¦‚æœä¸ºnullï¼Œè¯´æ˜å½“å‰çº¿ç¨‹ä¸æ˜¯bthread
 __thread TaskGroup* tls_task_group = NULL;
 // Sync with TaskMeta::local_storage when a bthread is created or destroyed.
 // During running, the two fields may be inconsistent, use tls_bls as the
@@ -119,13 +119,13 @@ bool TaskGroup::is_stopped(bthread_t tid) {
 bool TaskGroup::wait_task(bthread_t* tid) {
     do {
 #ifndef BTHREAD_DONT_SAVE_PARKING_STATE
-        // ÕâÀïÅĞ¶ÏvalÊÇ·ñÊÇÆæÊı, ÓÉÓÚÔÚÉú²úÈÎÎñÊ±µ÷ÓÃPLµÄsignal()×ÜÊÇÀÛ¼ÓÒ»¸öÅ¼Êı(num<<1), ËùÒÔÕı³£Çé¿öÏÂÕâÀï¶¼ÊÇ²»³ÉÁ¢µÄ
+        // è¿™é‡Œåˆ¤æ–­valæ˜¯å¦æ˜¯å¥‡æ•°, ç”±äºåœ¨ç”Ÿäº§ä»»åŠ¡æ—¶è°ƒç”¨PLçš„signal()æ€»æ˜¯ç´¯åŠ ä¸€ä¸ªå¶æ•°(num<<1), æ‰€ä»¥æ­£å¸¸æƒ…å†µä¸‹è¿™é‡Œéƒ½æ˜¯ä¸æˆç«‹çš„
         if (_last_pl_state.stopped()) {
             return false;
         }
         /*
-            ÄÚ²¿µ÷ÓÃµÄfutex×öµÄwait²Ù×÷£¬ÕâÀï¿ÉÒÔ¼òµ¥Àí½âÎª×èÈûµÈ´ı±»Í¨ÖªÀ´ÖÕÖ¹×èÈû£¬
-            µ±×èÈû½áÊøÖ®ºó£¬Ö´ĞĞsteal_task()À´½øĞĞ¹¤×÷ÇÔÈ¡
+            å†…éƒ¨è°ƒç”¨çš„futexåšçš„waitæ“ä½œï¼Œè¿™é‡Œå¯ä»¥ç®€å•ç†è§£ä¸ºé˜»å¡ç­‰å¾…è¢«é€šçŸ¥æ¥ç»ˆæ­¢é˜»å¡ï¼Œ
+            å½“é˜»å¡ç»“æŸä¹‹åï¼Œæ‰§è¡Œsteal_task()æ¥è¿›è¡Œå·¥ä½œçªƒå–
         */
         _pl->wait(_last_pl_state);
         if (steal_task(tid)) {
@@ -156,16 +156,16 @@ void TaskGroup::run_main_task() {
     TaskGroup* dummy = this;
     bthread_t tid;
     /*
-    *   Ã¿¸öworker»áÒ»Ö±ÔÚwhileÑ­»·ÖĞ£¬Èç¹ûÓĞ¿ÉÖ´ĞĞµÄbthread£¬wait_task»á·µ»Øtid£¬
-    *   ·ñÔò½«×èÈûµ±Ç°worker;ÆäÖĞ»áÉæ¼°¹¤×÷ÇÔÈ¡(working stealing)
+    *   æ¯ä¸ªworkerä¼šä¸€ç›´åœ¨whileå¾ªç¯ä¸­ï¼Œå¦‚æœæœ‰å¯æ‰§è¡Œçš„bthreadï¼Œwait_taskä¼šè¿”å›tidï¼Œ
+    *   å¦åˆ™å°†é˜»å¡å½“å‰worker;å…¶ä¸­ä¼šæ¶‰åŠå·¥ä½œçªƒå–(working stealing)
     */ 
     while (wait_task(&tid)) {
-        // ½øĞĞÕ»/¼Ä´æÆ÷µÈÔËĞĞÊ±ÉÏÏÂÎÄµÄÇĞ»», Îª½ÓÏÂÀ´ÔËĞĞµÄÈÎÎñ»Ö¸´ÆäÉÏÏÂÎÄ
+        // è¿›è¡Œæ ˆ/å¯„å­˜å™¨ç­‰è¿è¡Œæ—¶ä¸Šä¸‹æ–‡çš„åˆ‡æ¢, ä¸ºæ¥ä¸‹æ¥è¿è¡Œçš„ä»»åŠ¡æ¢å¤å…¶ä¸Šä¸‹æ–‡
         TaskGroup::sched_to(&dummy, tid);
         DCHECK_EQ(this, dummy);
         DCHECK_EQ(_cur_meta->stack, _main_stack);
         if (_cur_meta->tid != _main_tid) {
-            // Ö´ĞĞÈÎÎñ
+            // æ‰§è¡Œä»»åŠ¡
             TaskGroup::task_runner(1/*skip remained*/);
         }
         if (FLAGS_show_per_worker_usage_in_vars && !usage_bvar) {
@@ -207,7 +207,7 @@ TaskGroup::TaskGroup(TaskControl* c)
 {
     _steal_seed = butil::fast_rand();
     _steal_offset = OFFSET_TABLE[_steal_seed % ARRAY_SIZE(OFFSET_TABLE)];
-    // butil::fmix64()ÊÇÒ»¸öhashº¯Êı, ´ÓTCµÄ4¸öPLÖĞÑ¡ÁËÒ»¸ö¸³Öµ¸øÁËTG
+    // butil::fmix64()æ˜¯ä¸€ä¸ªhashå‡½æ•°, ä»TCçš„4ä¸ªPLä¸­é€‰äº†ä¸€ä¸ªèµ‹å€¼ç»™äº†TG
     _pl = &c->_pl[butil::fmix64(pthread_numeric_id()) % TaskControl::PARKING_LOT_NUM];
     CHECK(c);
 }
@@ -231,7 +231,7 @@ int TaskGroup::init(size_t runqueue_capacity) {
         LOG(FATAL) << "Fail to init _remote_rq";
         return -1;
     }
-    // Õë¶ÔSTACK_TYPE_MAIN×öÁËÌØ»¯£¬´ËÊ±²»»á·ÖÅäÕ»¿Õ¼ä£¬½ö½ö·µ»ØÒ»¸öContextualStack¶ÔÏó
+    // é’ˆå¯¹STACK_TYPE_MAINåšäº†ç‰¹åŒ–ï¼Œæ­¤æ—¶ä¸ä¼šåˆ†é…æ ˆç©ºé—´ï¼Œä»…ä»…è¿”å›ä¸€ä¸ªContextualStackå¯¹è±¡
     ContextualStack* stk = get_stack(STACK_TYPE_MAIN, NULL);
     if (NULL == stk) {
         LOG(FATAL) << "Fail to get main stack container";
@@ -300,7 +300,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
                 (butil::cpuwide_time_ns() - m->cpuwide_start_ns) / 1000L;
         }
 
-        // Ö´ĞĞTM(bthread)ÖĞµÄ»Øµ÷º¯Êı
+        // æ‰§è¡ŒTM(bthread)ä¸­çš„å›è°ƒå‡½æ•°
         // Not catch exceptions except ExitException which is for implementing
         // bthread_exit(). User code is intended to crash when an exception is
         // not caught explicitly. This is consistent with other threading
@@ -313,7 +313,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
         }
 
         // Group is probably changed
-        // º¯ÊıÖ´ĞĞ¹ı³ÌÖĞ¸Ãbth¿ÉÄÜ»áµ÷¶ÈÖÁÆäËûworker£¬Òò´Ëtask_group¿ÉÄÜ·¢Éú¸Ä±ä£¬ËùÒÔÖØĞÂ¶Ôg½øĞĞÉèÖÃ
+        // å‡½æ•°æ‰§è¡Œè¿‡ç¨‹ä¸­è¯¥bthå¯èƒ½ä¼šè°ƒåº¦è‡³å…¶ä»–workerï¼Œå› æ­¤task_groupå¯èƒ½å‘ç”Ÿæ”¹å˜ï¼Œæ‰€ä»¥é‡æ–°å¯¹gè¿›è¡Œè®¾ç½®
         g = tls_task_group;
 
         // TODO: Save thread_return
@@ -327,7 +327,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
                       << m->stat.cputime_ns / 1000000.0 << "ms";
         }
 
-        // ÇåÀíÏß³Ì¾Ö²¿±äÁ¿
+        // æ¸…ç†çº¿ç¨‹å±€éƒ¨å˜é‡
         // Clean tls variables, must be done before changing version_butex
         // otherwise another thread just joined this thread may not see side
         // effects of destructing tls variables.
@@ -339,7 +339,7 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
             m->local_storage.keytable = NULL; // optional
         }
 
-        // ÀÛ¼Ó°æ±¾ºÅ, ÇÒ°æ±¾ºÅ²»ÄÜÎª0
+        // ç´¯åŠ ç‰ˆæœ¬å·, ä¸”ç‰ˆæœ¬å·ä¸èƒ½ä¸º0
         // Increase the version and wake up all joiners, if resulting version
         // is 0, change it to 1 to make bthread_t never be 0. Any access
         // or join to the bthread after changing version will be rejected.
@@ -350,13 +350,13 @@ void TaskGroup::task_runner(intptr_t skip_remained) {
                 ++*m->version_butex;
             }
         }
-        // »½ĞÑjoiner
+        // å”¤é†’joiner
         butex_wake_except(m->version_butex, 0);
 
-        // _nbthreads¼õ1
+        // _nbthreadså‡1
         g->_control->_nbthreads << -1;
         g->set_remained(TaskGroup::_release_last_context, m);
-        // ²éÕÒÏÂÒ»¸öÈÎÎñ, ²¢ÇĞ»»µ½Æä¶ÔÓ¦µÄÔËĞĞÊ±ÉÏÏÂÎÄ
+        // æŸ¥æ‰¾ä¸‹ä¸€ä¸ªä»»åŠ¡, å¹¶åˆ‡æ¢åˆ°å…¶å¯¹åº”çš„è¿è¡Œæ—¶ä¸Šä¸‹æ–‡
         ending_sched(&g);
 
     } while (g->_cur_meta->tid != g->_main_tid);
@@ -416,9 +416,9 @@ int TaskGroup::start_foreground(TaskGroup** pg,
     } else {
         // NOSIGNAL affects current task, not the new task.
         /*
-            ÔÚtask_runnerÖĞ, bthreadÔÚÕæÕıÖ´ĞĞ×Ô¼ºµÄmetaÂß¼­Ç°»áÏÈÖ´ĞĞremain,
-            start_foreground»áÇÀÕ¼µ±Ç°bthreadµÄÖ´ĞĞ, Òò´ËÍ¨¹ıremain½«µ±Ç°bthread
-            ÖØĞÂpushµ½rqÖĞµÈ´ıÖ´ĞĞ
+            åœ¨task_runnerä¸­, bthreadåœ¨çœŸæ­£æ‰§è¡Œè‡ªå·±çš„metaé€»è¾‘å‰ä¼šå…ˆæ‰§è¡Œremain,
+            start_foregroundä¼šæŠ¢å å½“å‰bthreadçš„æ‰§è¡Œ, å› æ­¤é€šè¿‡remainå°†å½“å‰bthread
+            é‡æ–°pushåˆ°rqä¸­ç­‰å¾…æ‰§è¡Œ
         */ 
         RemainedFn fn = NULL;
         if (g->current_task()->about_to_quit) {
@@ -431,12 +431,12 @@ int TaskGroup::start_foreground(TaskGroup** pg,
             (bool)(using_attr.flags & BTHREAD_NOSIGNAL)
         };
         g->set_remained(fn, &args);
-        TaskGroup::sched_to(pg, m->tid);    // µ÷¶ÈÖ´ĞĞ
+        TaskGroup::sched_to(pg, m->tid);    // è°ƒåº¦æ‰§è¡Œ
     }
     return 0;
 }
 
-template <bool REMOTE>  // REMOTE±íÊ¾¸ÃbthreadµÄÏß³ÌÊ±ÆÕÍ¨pthread»¹ÊÇbthread_worker
+template <bool REMOTE>  // REMOTEè¡¨ç¤ºè¯¥bthreadçš„çº¿ç¨‹æ—¶æ™®é€špthreadè¿˜æ˜¯bthread_worker
 int TaskGroup::start_background(bthread_t* __restrict th,
                                 const bthread_attr_t* __restrict attr,
                                 void * (*fn)(void*),
@@ -447,7 +447,7 @@ int TaskGroup::start_background(bthread_t* __restrict th,
     const int64_t start_ns = butil::cpuwide_time_ns();
     const bthread_attr_t using_attr = (attr ? *attr : BTHREAD_ATTR_NORMAL);
     butil::ResourceId<TaskMeta> slot;
-    TaskMeta* m = butil::get_resource(&slot);   // ´Ó×ÊÔ´³ØÈ¡³öÒ»¸öTaskmeta¶ÔÏó²¢¶ÔÆä³õÊ¼»¯
+    TaskMeta* m = butil::get_resource(&slot);   // ä»èµ„æºæ± å–å‡ºä¸€ä¸ªTaskmetaå¯¹è±¡å¹¶å¯¹å…¶åˆå§‹åŒ–
     if (__builtin_expect(!m, 0)) {
         return ENOMEM;
     }
@@ -455,7 +455,7 @@ int TaskGroup::start_background(bthread_t* __restrict th,
     m->stop = false;
     m->interrupted = false;
     m->about_to_quit = false;
-    m->fn = fn;     // Ö´ĞĞº¯ÊıµÄ¸³Öµ
+    m->fn = fn;     // æ‰§è¡Œå‡½æ•°çš„èµ‹å€¼
     m->arg = arg;
     CHECK(m->stack == NULL);
     m->attr = using_attr;
@@ -468,7 +468,7 @@ int TaskGroup::start_background(bthread_t* __restrict th,
         LOG(INFO) << "Started bthread " << m->tid;
     }
     _control->_nbthreads << 1;
-    // ½«TaskMeta¼ÓÈëµ½rqÖĞ, ¶ø²»ÊÇÖ±½Óµ÷¶ÈÖ´ĞĞ
+    // å°†TaskMetaåŠ å…¥åˆ°rqä¸­, è€Œä¸æ˜¯ç›´æ¥è°ƒåº¦æ‰§è¡Œ
     if (REMOTE) {
         ready_to_run_remote(m->tid, (using_attr.flags & BTHREAD_NOSIGNAL));
     } else {
@@ -543,7 +543,7 @@ void TaskGroup::ending_sched(TaskGroup** pg) {
 #else
     const bool popped = g->_rq.steal(&next_tid);
 #endif
-    // ÕâÀïÏÈ´Ó_rqÖĞÈ¡ÈÎÎñ, Èç¹ûÃ»ÓĞÔòÈ¥ÇÔÈ¡ÈÎÎñ(¿´À´TG²¢²»°Ñ_remote_rqµ±×÷×Ô¼ºµÄÈÎÎñÀ´¿´), ÈôÇÔÈ¡²»µ½ÈÎÎñÔò next_tid ÉèÖÃÎª g->_main_tid, Ê¹Íâ²¿ task_runner ÖĞÌø³öÑ­»·
+    // è¿™é‡Œå…ˆä»_rqä¸­å–ä»»åŠ¡, å¦‚æœæ²¡æœ‰åˆ™å»çªƒå–ä»»åŠ¡(çœ‹æ¥TGå¹¶ä¸æŠŠ_remote_rqå½“ä½œè‡ªå·±çš„ä»»åŠ¡æ¥çœ‹), è‹¥çªƒå–ä¸åˆ°ä»»åŠ¡åˆ™ next_tid è®¾ç½®ä¸º g->_main_tid, ä½¿å¤–éƒ¨ task_runner ä¸­è·³å‡ºå¾ªç¯
     if (!popped && !g->steal_task(&next_tid)) {
         // Jump to main task if there's no task to run.
         next_tid = g->_main_tid;
@@ -611,12 +611,12 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta) {
     }
     ++cur_meta->stat.nswitch;
     ++ g->_nswitch;
-    // ÅĞ¶ÏÏÂÒ»¸öTMºÍµ±Ç°µÄTMÈç¹û²»ÊÇÍ¬Ò»¸ö¾ÍÇĞ»»Õ»
+    // åˆ¤æ–­ä¸‹ä¸€ä¸ªTMå’Œå½“å‰çš„TMå¦‚æœä¸æ˜¯åŒä¸€ä¸ªå°±åˆ‡æ¢æ ˆ
     // Switch to the task
     if (__builtin_expect(next_meta != cur_meta, 1)) {
         g->_cur_meta = next_meta;
         // Switch tls_bls
-        cur_meta->local_storage = tls_bls;  // tls_bls ±íÊ¾TM(bthread)ÄÚ²¿µÄ¾Ö²¿´æ´¢
+        cur_meta->local_storage = tls_bls;  // tls_bls è¡¨ç¤ºTM(bthread)å†…éƒ¨çš„å±€éƒ¨å­˜å‚¨
         tls_bls = next_meta->local_storage;
 
         // Logging must be done after switching the local storage, since the logging lib
@@ -629,7 +629,7 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta) {
 
         if (cur_meta->stack != NULL) {
             if (next_meta->stack != cur_meta->stack) {
-                jump_stack(cur_meta->stack, next_meta->stack);  // ÇĞ»»Õ»
+                jump_stack(cur_meta->stack, next_meta->stack);  // åˆ‡æ¢æ ˆ
                 // probably went to another group, need to assign g again.
                 g = tls_task_group;
             }
@@ -646,7 +646,7 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta) {
         LOG(FATAL) << "bthread=" << g->current_tid() << " sched_to itself!";
     }
 
-    // Ö´ĞĞTGµÄ remain º¯Êı
+    // æ‰§è¡ŒTGçš„ remain å‡½æ•°
     while (g->_last_context_remained) {
         RemainedFn fn = g->_last_context_remained;
         g->_last_context_remained = NULL;
@@ -673,7 +673,7 @@ void TaskGroup::destroy_self() {
     }
 }
 
-// °ÑÈÎÎñ¼ÓÈë¶ÓÁĞÈ»ºóµ÷ÓÃsignal°´Ğè»½ĞÑwork
+// æŠŠä»»åŠ¡åŠ å…¥é˜Ÿåˆ—ç„¶åè°ƒç”¨signalæŒ‰éœ€å”¤é†’work
 void TaskGroup::ready_to_run(bthread_t tid, bool nosignal) {
     push_rq(tid);
     if (nosignal) {
@@ -696,19 +696,19 @@ void TaskGroup::flush_nosignal_tasks() {
 }
 
 void TaskGroup::ready_to_run_remote(bthread_t tid, bool nosignal) {
-    // ¸øµ±Ç°TGµÄ_remote_rq¼Ó»¥³âËø
+    // ç»™å½“å‰TGçš„_remote_rqåŠ äº’æ–¥é”
     _remote_rq._mutex.lock();
-    // Èë¶Ó²Ù×÷
+    // å…¥é˜Ÿæ“ä½œ
     while (!_remote_rq.push_locked(tid)) {
         /*
-            ÕâÀïÖ»ÒªÊ§°Ü¾ÍÖ´ĞĞflushÈ»ºóĞİÃß1ms, È»ºó½øĞĞÏÂÒ»´ÎÑ­»·ÖØĞÂ³¢ÊÔÈë¶Ó,
-            Ê§°ÜµÄÎ¨Ò»Ô­Òò¾ÍÊÇ_remote_rqµÄÈİÁ¿ÂúÁË
+            è¿™é‡Œåªè¦å¤±è´¥å°±æ‰§è¡Œflushç„¶åä¼‘çœ 1ms, ç„¶åè¿›è¡Œä¸‹ä¸€æ¬¡å¾ªç¯é‡æ–°å°è¯•å…¥é˜Ÿ,
+            å¤±è´¥çš„å”¯ä¸€åŸå› å°±æ˜¯_remote_rqçš„å®¹é‡æ»¡äº†
         */ 
         flush_nosignal_tasks_remote_locked(_remote_rq._mutex);
         LOG_EVERY_SECOND(ERROR) << "_remote_rq is full, capacity="
                                 << _remote_rq.capacity();
         ::usleep(1000);
-        // flush_nosignal_tasks_remote_lockedÄÚ»á½âËø, ÕâÀïÖØĞÂ¼ÓËø
+        // flush_nosignal_tasks_remote_lockedå†…ä¼šè§£é”, è¿™é‡Œé‡æ–°åŠ é”
         _remote_rq._mutex.lock();
     }
     if (nosignal) {
@@ -723,7 +723,7 @@ void TaskGroup::ready_to_run_remote(bthread_t tid, bool nosignal) {
     }
 }
 
-// ·¢³öÒ»¸öĞÅºÅÈÃ_remote_rqÖĞµÄÈÎÎñ(TM/bthread)¾¡¿ì±»Ïû·Ñµô
+// å‘å‡ºä¸€ä¸ªä¿¡å·è®©_remote_rqä¸­çš„ä»»åŠ¡(TM/bthread)å°½å¿«è¢«æ¶ˆè´¹æ‰
 void TaskGroup::flush_nosignal_tasks_remote_locked(butil::Mutex& locked_mutex) {
     const int val = _remote_num_nosignal;
     if (!val) {
