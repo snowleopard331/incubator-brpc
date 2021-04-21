@@ -155,6 +155,7 @@ public:
     // Flush tasks pushed to rq but signalled.
     void flush_nosignal_tasks();
 
+    // 其他没有worker的线程会把bthread push到remote队列中
     // Push a bthread into the runqueue from another non-worker thread.
     void ready_to_run_remote(bthread_t tid, bool nosignal = false);
     void flush_nosignal_tasks_remote_locked(butil::Mutex& locked_mutex);
@@ -237,7 +238,7 @@ friend class TaskControl;
     
     // the control that this group belongs to
     TaskControl* _control;
-    int _num_nosignal;
+    int _num_nosignal;  // 记录_rq队列中没有唤醒TG任务的数量
     int _nsignaled;
     // last scheduling time
     int64_t _last_run_ns;
@@ -253,11 +254,13 @@ friend class TaskControl;
 #endif
     size_t _steal_seed;
     size_t _steal_offset;
+    // brpc并没有为pthread重新分配一个栈，而是仅仅记录了pthread栈的位置，
+    // main_stack即为pthread栈，而main_tid则代表了这个pthread
     ContextualStack* _main_stack;
     bthread_t _main_tid;
     WorkStealingQueue<bthread_t> _rq;   // 当前TG将bthread入到此队列
     RemoteTaskQueue _remote_rq;         // 其他没有TG的线程中把bthread入到此队列
-    int _remote_num_nosignal;
+    int _remote_num_nosignal;       // 记录_remote_rq队列中没有唤醒TG任务的数量
     int _remote_nsignaled;
 };
 

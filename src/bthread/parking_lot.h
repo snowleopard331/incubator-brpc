@@ -42,7 +42,7 @@ public:
 
     ParkingLot() : _pending_signal(0) {}
 
-    // 唤醒最多num_task个worker，返回唤醒的worker
+    // 唤醒最多num_task个worker，返回唤醒的worker数量
     // Wake up at most `num_task' workers.
     // Returns #workers woken up.
     int signal(int num_task) {

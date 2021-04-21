@@ -678,6 +678,9 @@ private:
     // locking and relies on atomic CAS. We manage references manually.
     butil::atomic<SharedPart*> _shared_part;
 
+    // 用来保证对于一个fd，同时只会有一个bthread在处理，当收到事件时，EDISP给nevent加1，
+    // 只有当加1前的值是0时启动一个bthread处理对应fd上的数据，前值不为0说明已经有bthread
+    // 在处理该fd上的数据了，可以直接返回，因为正在处理的bthread会一直读下去
     // [ Set in dispatcher ]
     // To keep the callback in at most one bthread at any time. Read comments
     // of EventDispatcher::ProcessEvent in event_dispatcher.cpp to

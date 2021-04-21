@@ -368,6 +368,7 @@ void InitializeGlobalDispatchers() {
 }
 
 EventDispatcher& GetGlobalEventDispatcher(int fd) {
+    // Linux Threads 使用互斥锁和条件变量保证由pthread_once()指定的函数执行且仅执行一次
     pthread_once(&g_edisp_once, InitializeGlobalDispatchers);
     if (FLAGS_event_dispatcher_num == 1) {
         return g_edisp[0];

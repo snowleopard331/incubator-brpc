@@ -58,7 +58,7 @@ void run_worker_startfn() {
 void* TaskControl::worker_thread(void* arg) {
     /*
         1. TG创建前的处理, 里面也是回调 g_worker_startfn 函数来执行操作,
-            可以通过 bthread_set_worker_startfn() 来设置这个回调, 实际很少用到这个功能
+            可以通过 bthread_set_worker_startfn() 来设置这个回调(实际很少用到这个功能)
     */
     run_worker_startfn();    
 #ifdef BAIDU_INTERNAL
@@ -103,7 +103,7 @@ TaskGroup* TaskControl::create_group() {
         LOG(FATAL) << "Fail to new TaskGroup";
         return NULL;
     }
-    if (g->init(FLAGS_task_group_runqueue_capacity) != 0) {
+    if (g->init(FLAGS_task_group_runqueue_capacity/*默认是4096*/) != 0) {
         LOG(ERROR) << "Fail to init TaskGroup";
         delete g;
         return NULL;
@@ -407,6 +407,8 @@ void TaskControl::signal_task(int num_task) {
             if (++start_index >= PARKING_LOT_NUM) {
                 start_index = 0;
             }
+            // _pl[start_index].signal(1)的返回值就是返回的worker个数了。然
+            // 后将num_task减去唤醒的个数就是需要唤醒，但未唤醒的任务个数
             num_task -= _pl[start_index].signal(1);
         }
     }

@@ -118,6 +118,7 @@ struct ServerOptions {
     // Default: 0 (unlimited)
     int max_concurrency;
 
+    // 为所有方法设置最高并发度(限流), "auto"表示开启自适应限流
     // Default value of method-level max concurrencies,
     // Overridable by Server.MaxConcurrencyOf().
     AdaptiveMaxConcurrency method_max_concurrency;

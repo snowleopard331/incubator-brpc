@@ -436,7 +436,7 @@ int TaskGroup::start_foreground(TaskGroup** pg,
     return 0;
 }
 
-template <bool REMOTE>  // REMOTE表示该bthread的线程时普通pthread还是bthread_worker
+template <bool REMOTE>
 int TaskGroup::start_background(bthread_t* __restrict th,
                                 const bthread_attr_t* __restrict attr,
                                 void * (*fn)(void*),
